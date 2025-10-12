@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Modal, StyleSheet } from 'react-native';
 import { basicColors } from './colors';
 
 const styles = StyleSheet.create({
@@ -19,10 +12,9 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 15,
     padding: 20,
     width: '100%',
-    maxWidth: 400,
   },
   modalTitle: {
     fontSize: 18,

@@ -1,8 +1,18 @@
 export const basicColors = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-  '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
-  '#F8C471', '#82E0AA', '#F1948A', '#85C1E9', '#D7BDE2'
+  '#FF0000', // Red
+  '#FF7F00', // Orange
+  '#FFFF00', // Yellow
+  '#00FF00', // Green
+  '#1f9d7fff',// Dark Green
+  '#00FFFF', // Cyan
+  '#0000FF', // Blue
+  '#8B00FF', // Violet / Purple
+  '#FFC0CB', // Pink
+  '#A52A2A', // Brown
+  '#808080', // Gray
+  '#000000' // Black
 ];
+
 
 export const lightenColor = (color, percent = 40) => {
   const num = parseInt(color.replace('#', ''), 16);
