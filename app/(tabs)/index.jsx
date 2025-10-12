@@ -30,13 +30,19 @@ const App = () => {
           <Text style={styles.buttonText}>Import Project</Text>
         </TouchableOpacity>
       </View>
+    
     </View>
   );
 };
 
+
+
 export default App;
 
 const styles = StyleSheet.create({
+  tabBarStyle: {
+    display: 'none',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f2f0',
