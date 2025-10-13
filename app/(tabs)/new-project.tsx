@@ -6,14 +6,14 @@ import {
   getValidColor,
   isValidColor,
   lightenColor,
-} from "./new-project helper/colors";
-import { useFormState } from "./new-project helper/form";
+} from "@/components/new-project helper/colors";
+import { useFormState } from "@/components/new-project helper/form";
 import {
   ColorPickerModal,
   HexInputModal,
   NameInputModal,
-} from "./new-project helper/popups";
-import { styles } from "./new-project helper/styles";
+} from "@/components/new-project helper/popups";
+import { styles } from "@/components/new-project helper/styles";
 
 export default function NewProjectScreen() {
   const router = useRouter();

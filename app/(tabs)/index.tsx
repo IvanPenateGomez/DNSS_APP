@@ -1,5 +1,3 @@
-import * as schema from "@/db/schema";
-import { drizzle } from "drizzle-orm/expo-sqlite";
 import { useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 
@@ -9,9 +7,9 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 const App = () => {
   const router = useRouter();
   const db = useSQLiteContext();
-  const drizzleDb = drizzle(db, { schema });
   useEffect(() => {
     const loadData = async () => {
+      //Will output local db path to console
       console.log(db.databasePath);
     };
 
