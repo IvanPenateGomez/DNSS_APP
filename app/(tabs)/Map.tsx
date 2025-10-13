@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, View, ActivityIndicator, Alert } from "react-native";
-import MapView, { Region } from "react-native-maps";
 import * as Location from "expo-location";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
+import MapView, { Region } from "react-native-maps";
 
 export default function Map() {
   const [region, setRegion] = useState<Region | null>(null);
@@ -47,6 +47,7 @@ export default function Map() {
   return (
     <View style={{ flex: 1 }}>
       <MapView
+        provider="google"
         style={styles.map}
         initialRegion={region}
         showsUserLocation
