@@ -12,6 +12,8 @@ export default function noTabBarLayout() {
     <View style={{ flex: 1 }}>
       <Stack>
         <Stack.Screen name="projectScreens" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+
       </Stack>
     </View>
   );

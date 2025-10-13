@@ -1,10 +1,20 @@
-import NewProjectComp from "@/components/project/NewProjectComp";
-import React from "react";
+import { useSQLiteContext } from "expo-sqlite";
+import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const NewProject = () => {
+import WelcomeScreen from "@/components/home/WelcomeScreen";
+
+const index = () => {
+  const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    const loadData = async () => {
+      console.log("📂 Database path:", db.databasePath);
+    };
+    loadData();
+  }, [db]);
 
   return (
     <View
@@ -13,21 +23,16 @@ const NewProject = () => {
         { paddingTop: insets.top + 20, paddingBottom: 120 },
       ]}
     >
-      <NewProjectComp />
+      <WelcomeScreen />
     </View>
   );
 };
 
-export default NewProject;
+export default index;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f2f0",
-
-  },
-  text: {
-    fontSize: 18,
-    color: "#333",
   },
 });

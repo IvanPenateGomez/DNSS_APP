@@ -19,7 +19,7 @@ const WelcomeScreen = () => {
 
   const handleNewProject = () => {
     // TODO: navigate to new project setup page
-    router.push("/(notabs)/projectScreens/NewProjectScreen");
+    router.push("/(tabs)");
     console.log("New Project pressed");
   };
 
