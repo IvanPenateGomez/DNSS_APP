@@ -28,16 +28,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="map"
-        options={{
-          title: "Map",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
-          ),
-        }}
-      />
-
+ 
       <Tabs.Screen
         name="newProject"
         options={{
@@ -46,7 +37,16 @@ export default function TabLayout() {
             <IconSymbol size={28} name="paperplane.fill" color={color} />
           ),
         }}
-      />
+      />     <Tabs.Screen
+      name="Map"
+      options={{
+        title: "Map",
+        tabBarIcon: ({ color }) => (
+          <IconSymbol size={28} name="paperplane.fill" color={color} />
+        ),
+      }}
+    />
+
     </Tabs>
   );
 }
