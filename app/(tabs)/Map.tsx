@@ -1,7 +1,7 @@
 import { StyleSheet, View } from "react-native";
 import MapView, { Region } from "react-native-maps";
 
-export default function TabTwoScreen() {
+export default function Map() {
   // const region: Region = {
   //   latitude,
   //   longitude,

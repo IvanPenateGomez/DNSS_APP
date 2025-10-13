@@ -15,7 +15,7 @@ import {
 } from "@/components/new-project helper/popups";
 import { styles } from "@/components/new-project helper/styles";
 
-export default function NewProjectScreen() {
+export default function newProject() {
   const router = useRouter();
   const {
     objects,

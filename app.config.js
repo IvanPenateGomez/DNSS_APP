@@ -12,12 +12,6 @@ export default {
       supportsTablet: true,
     },
     android: {
-      adaptiveIcon: {
-        backgroundColor: "#E6F4FE",
-        foregroundImage: "./assets/images/android-icon-foreground.png",
-        backgroundImage: "./assets/images/android-icon-background.png",
-        monochromeImage: "./assets/images/android-icon-monochrome.png",
-      },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
     },
@@ -33,10 +27,7 @@ export default {
           image: "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#ffffff",
-          dark: {
-            backgroundColor: "#000000",
-          },
+          backgroundColor: "#5C8B6F",
         },
       ],
       "expo-sqlite",
