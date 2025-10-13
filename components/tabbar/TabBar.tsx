@@ -1,4 +1,4 @@
-import { GLOBAL_TINT_COLOR } from "@/constants/GlobalStyles";
+import { GLOBAL_APP_COLOR, GLOBAL_TINT_COLOR } from "@/constants/GlobalStyles";
 import { IconKeys } from "@assets/icons/TabbarIcons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import React, { useEffect, useState } from "react";
@@ -46,6 +46,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             position: "absolute",
             borderRadius: 30,
             marginHorizontal: 12,
+            backgroundColor: "#7a6161ff",
             height: dimensions.height - 15,
             width: buttonWidth - 25,
             overflow: "hidden", // ✅ needed for gradient clipping
@@ -94,7 +95,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             onLongPress={onLongPress}
             isFocused={isFocused}
             routeName={route.name as IconKeys}
-            color={isFocused ? "white" : greyColor}
+            color={isFocused ? "white" : "#333333"}
             label={label as string}
           />
         );
@@ -107,14 +108,14 @@ export default TabBar;
 
 const styles = StyleSheet.create({
   tabbar: {
-    borderWidth: 1,
+    borderWidth: 0,
     borderColor: "#2F323A",
     position: "absolute",
     bottom: 30,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: GLOBAL_TINT_COLOR,
+    backgroundColor: "white",
     marginHorizontal: 60,
     paddingVertical: 15,
     borderRadius: 35,

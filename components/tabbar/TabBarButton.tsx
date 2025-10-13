@@ -72,7 +72,7 @@ console.log("icons[routeName]: ", routeName)
         style={[
           animatedTextStyle,
           {
-            color: isFocused ? "white" : "grey",
+            color: isFocused ? "black" : "#808080",
             fontSize: 12,
             zIndex: 50,
             fontFamily: "Inter_400Regular",
