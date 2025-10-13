@@ -47,7 +47,6 @@ const TabBarButton = ({
     const opacity = interpolate(scale.value, [0, 1], [1, 0]);
     return { opacity };
   });
-console.log("icons[routeName]: ", routeName)
   //GOOD
   return (
     <Pressable
