@@ -1,6 +1,8 @@
+import BackButton from "@/components/general/BackButton";
 import NewProjectComp from "@/components/project/NewProjectComp";
 import React from "react";
 import { StyleSheet, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const index = () => {
@@ -10,9 +12,12 @@ const index = () => {
     <View
       style={[
         styles.container,
-        { paddingTop: insets.top + 20, paddingBottom: 120 },
+        { paddingTop: insets.top + 15, paddingBottom: 120 },
       ]}
     >
+      <Animated.View style={{position: 'absolute', top: insets.top + 25, zIndex: 10, left: 10}}>
+        <BackButton />
+      </Animated.View>
       <NewProjectComp />
     </View>
   );
