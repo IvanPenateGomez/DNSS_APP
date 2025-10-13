@@ -3,6 +3,7 @@ import { useSQLiteContext } from "expo-sqlite";
 
 import React, { useEffect } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const WelcomeScreen = () => {
@@ -29,7 +30,8 @@ const WelcomeScreen = () => {
   };
   const insets = useSafeAreaInsets();
   return (
-    <View
+    <Animated.View
+      entering={FadeIn.duration(400).delay(300)}
       style={[
         styles.container,
         { paddingTop: insets.top + 20, paddingBottom: 120 },
@@ -41,21 +43,30 @@ const WelcomeScreen = () => {
       </Text>
 
       <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.buttonPrimary}
-          onPress={handleNewProject}
+        <Animated.View
+          style={{ width: "100%", alignItems: "center" }}
+          entering={FadeInDown.duration(400).delay(500)}
         >
-          <Text style={styles.buttonText}>New Project</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.buttonSecondary}
-          onPress={handleImportProject}
+          <TouchableOpacity
+            style={styles.buttonPrimary}
+            onPress={handleNewProject}
+          >
+            <Text style={styles.buttonText}>New Project</Text>
+          </TouchableOpacity>
+        </Animated.View>
+        <Animated.View
+          style={{ width: "100%", alignItems: "center" }}
+          entering={FadeInDown.duration(400).delay(700)}
         >
-          <Text style={styles.buttonText}>Import Project</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.buttonSecondary}
+            onPress={handleImportProject}
+          >
+            <Text style={styles.buttonText}>Import Project</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 

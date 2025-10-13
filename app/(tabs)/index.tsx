@@ -2,7 +2,7 @@ import BackButton from "@/components/general/BackButton";
 import NewProjectComp from "@/components/project/NewProjectComp";
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import Animated from "react-native-reanimated";
+import Animated, { SlideInLeft } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const index = () => {
@@ -15,7 +15,7 @@ const index = () => {
         { paddingTop: insets.top + 15, paddingBottom: 120 },
       ]}
     >
-      <Animated.View style={{position: 'absolute', top: insets.top + 25, zIndex: 10, left: 10}}>
+      <Animated.View entering={SlideInLeft.duration(400).delay(150)} style={{position: 'absolute', top: insets.top + 25, zIndex: 10, left: 10}}>
         <BackButton />
       </Animated.View>
       <NewProjectComp />
