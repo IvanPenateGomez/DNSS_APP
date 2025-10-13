@@ -4,7 +4,7 @@ import { View } from "react-native";
 
 export default function Index() {
   useEffect(() => {
-    router.replace("/(notabs)");
+    router.replace("/(app)/(drawer)/(notabs)");
   }, []);
 
   return <View style={{ flex: 1, backgroundColor:"#f5f2f0" }} />;
