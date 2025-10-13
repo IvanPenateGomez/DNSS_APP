@@ -14,6 +14,7 @@ import {
   NameInputModal,
 } from "@/components/new-project helper/popups";
 import { styles } from "@/components/new-project helper/styles";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function newProject() {
   const router = useRouter();
@@ -50,11 +51,17 @@ export default function newProject() {
 
   const handleStartSurvey = () => {
     console.log("Starting survey with objects:", objects);
-    router.push("/(tabs)/survey");
+    //router.push("/(tabs)/survey");
   };
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top + 20, paddingBottom: 300 },
+      ]}
+    >
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -160,7 +167,7 @@ export default function newProject() {
         />
       </ScrollView>
 
-      <View style={styles.fixedButtonContainer}>
+      <View style={[styles.fixedButtonContainer, {bottom: insets.bottom + 120}]}>
         <TouchableOpacity
           style={styles.startSurveyButton}
           onPress={handleStartSurvey}

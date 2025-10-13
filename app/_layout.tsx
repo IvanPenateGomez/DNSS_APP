@@ -11,8 +11,9 @@ import { Stack } from "expo-router";
 import { openDatabaseSync, SQLiteProvider } from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
 import { Suspense, useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Platform, View } from "react-native";
 import "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 export const DATABASE_NAME = "GNSS_db";
 
 export default function RootLayout() {
@@ -26,8 +27,7 @@ export default function RootLayout() {
       // addIntialData(db);
     }
   }, [success, error]);
-
-
+  const insets = useSafeAreaInsets();
   return (
     <Suspense
       fallback={
@@ -44,15 +44,22 @@ export default function RootLayout() {
       }
     >
       <SQLiteProvider databaseName={DATABASE_NAME} useSuspense>
-        <ThemeProvider
-          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+        <View
+          style={{
+            flex: 1,
+            paddingBottom: Platform.OS == "android" ? insets.bottom : 0,
+            paddingTop: 0,
+          }}
         >
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    
-          </Stack>
-          <StatusBar style="auto" />
-        </ThemeProvider>
+          <ThemeProvider
+            value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+          >
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            </Stack>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </View>
       </SQLiteProvider>
     </Suspense>
   );

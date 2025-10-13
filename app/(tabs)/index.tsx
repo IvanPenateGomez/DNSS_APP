@@ -3,6 +3,7 @@ import { useSQLiteContext } from "expo-sqlite";
 
 import React, { useEffect } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const App = () => {
   const router = useRouter();
@@ -26,9 +27,9 @@ const App = () => {
     // TODO: navigate to import project flow
     console.log("Import Project pressed");
   };
-
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, {paddingTop: insets.top + 20, paddingBottom: 120}]}>
       <Text style={styles.title}>Welcome to Survey App</Text>
       <Text style={styles.subtitle}>
         Get started by creating a new project or importing an existing one.
