@@ -277,3 +277,29 @@ export const HexInputModal = ({
     </Modal>
   );
 };
+
+export const SelectOptionsModal = ({ setOption, option, visible, onDone, handleAdd }) => {
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Add Options</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Enter option"
+            value={option}
+            onChangeText={setOption}
+            />
+          <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10 }}>
+            <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={onDone}>
+              <Text style={styles.cancelButtonText}>Done</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={handleAdd}>
+              <Text style={styles.confirmButtonText}>Add</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};

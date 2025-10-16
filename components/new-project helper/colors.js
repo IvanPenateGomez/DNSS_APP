@@ -1,16 +1,16 @@
 export const basicColors = [
-  '#FF0000', // Red
-  '#FF7F00', // Orange
-  '#FFFF00', // Yellow
-  '#00FF00', // Green
-  '#1f9d7fff',// Dark Green
-  '#00FFFF', // Cyan
-  '#0000FF', // Blue
-  '#8B00FF', // Violet / Purple
-  '#FFC0CB', // Pink
-  '#A52A2A', // Brown
-  '#808080', // Gray
-  '#000000' // Black
+  '#FF0000',
+  '#FF7F00',
+  '#FFFF00',
+  '#00FF00',
+  '#1f9d7fff',
+  '#00FFFF',
+  '#0000FF',
+  '#8B00FF',
+  '#FFC0CB',
+  '#A52A2A',
+  '#808080',
+  '#000000'
 ];
 
 
