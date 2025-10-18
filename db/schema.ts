@@ -54,11 +54,14 @@ export const observations = sqliteTable("observations", {
 
 export const attributeValues = sqliteTable("attribute_values", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+
+  // 👇 now optional
   observation_id: integer("observation_id")
-    .notNull()
     .references(() => observations.id, { onDelete: "cascade" }),
+
   attribute_id: integer("attribute_id")
     .notNull()
     .references(() => attributes.id, { onDelete: "cascade" }),
+
   value_text: text("value_text"),
 });

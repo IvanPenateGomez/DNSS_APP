@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import { useSQLiteContext } from "expo-sqlite";
 import { eq } from "drizzle-orm";
-import { objectTypes, attributes } from "@/db/schema";
+import { objectTypes, attributes, attributeValues } from "@/db/schema";
 import { ObjectItem, ValueType } from "@/components/new-project helper/form";
 
 export function useProjectSync(
@@ -13,7 +13,7 @@ export function useProjectSync(
   const sqliteDb = useSQLiteContext();
   const db = drizzle(sqliteDb);
 
-  // --- LOAD PROJECT DATA FROM DB ---
+  // --- LOAD PROJECT DATA ---
   useEffect(() => {
     if (!projectId || projectId === 0) return;
 
@@ -21,20 +21,23 @@ export function useProjectSync(
       try {
         console.log("📦 Loading project data for:", projectId);
 
-        // 1️⃣ Fetch all object types
+        // 1️⃣ Fetch all objects and attributes
         const dbObjects = await db
           .select()
           .from(objectTypes)
           .where(eq(objectTypes.project_id, projectId))
           .orderBy(objectTypes.order_index);
 
-        // 2️⃣ Fetch all attributes
         const dbAttributes = await db
           .select()
           .from(attributes)
           .orderBy(attributes.order_index);
 
-        // 3️⃣ Map nested data structure
+        const dbValues = await db
+          .select()
+          .from(attributeValues);
+
+        // 2️⃣ Map to nested structure
         const mapped: ObjectItem[] = dbObjects.map((obj) => ({
           id: obj.id,
           name: obj.name,
@@ -45,12 +48,18 @@ export function useProjectSync(
               id: attr.id,
               name: attr.label,
               valueType: attr.type as ValueType,
-              values: [],
+              values: dbValues
+                .filter((val) => val.attribute_id === attr.id)
+                .map((v) => ({
+                  id: v.id,
+                  name: v.value_text ?? "",
+                  valueType: attr.type as ValueType,
+                })),
             })),
         }));
 
         setObjects(mapped);
-        console.log("✅ Loaded project:", projectId, mapped.length, "objects");
+        console.log("✅ Loaded project data with select values:", projectId);
       } catch (err) {
         console.error("❌ Failed to load project data:", err);
       }
@@ -59,47 +68,64 @@ export function useProjectSync(
     loadFromDatabase();
   }, [projectId]);
 
-  // --- SAVE PROJECT DATA TO DB ---
+  // --- SAVE PROJECT DATA ---
   useEffect(() => {
     if (!projectId || projectId === 0) return;
 
     const saveToDatabase = async () => {
       try {
-        console.log("💾 Saving project data for:", projectId);
+        console.log("💾 Syncing project data for project:", projectId);
 
-        // 1️⃣ Delete old object types (cascade removes attributes)
+        // 1️⃣ Clear existing data (cascade removes attributes + values)
         await db.delete(objectTypes).where(eq(objectTypes.project_id, projectId));
 
-        // 2️⃣ Insert updated object structure
-        for (const [i, obj] of objects.entries()) {
-          const inserted = await db
+        // 2️⃣ Re-insert all object types
+        for (const [objIndex, obj] of objects.entries()) {
+          const insertedObject = await db
             .insert(objectTypes)
             .values({
               project_id: projectId,
               name: obj.name,
               color: obj.color,
-              order_index: i,
+              order_index: objIndex,
             })
             .returning({ id: objectTypes.id });
 
-          const objectTypeId = inserted[0]?.id;
+          const objectTypeId = insertedObject[0]?.id;
           if (!objectTypeId) continue;
 
-          for (const [j, attr] of obj.attributes.entries()) {
-            await db.insert(attributes).values({
-              object_type_id: objectTypeId,
-              label: attr.name,
-              key: attr.name.toLowerCase().replace(/\s+/g, "_"),
-              type: attr.valueType,
-              required: false,
-              order_index: j,
-            });
+          // 3️⃣ Insert all attributes
+          for (const [attrIndex, attr] of obj.attributes.entries()) {
+            const insertedAttr = await db
+              .insert(attributes)
+              .values({
+                object_type_id: objectTypeId,
+                label: attr.name,
+                key: attr.name.toLowerCase().replace(/\s+/g, "_"),
+                type: attr.valueType,
+                required: false,
+                order_index: attrIndex,
+              })
+              .returning({ id: attributes.id });
+
+            const attributeId = insertedAttr[0]?.id;
+            if (!attributeId) continue;
+
+            // 4️⃣ Insert select values if type === "select"
+            if (attr.valueType === "select" && attr.values?.length > 0) {
+              for (const val of attr.values) {
+                await db.insert(attributeValues).values({
+                  attribute_id: attributeId,
+                  value_text: val.name,
+                });
+              }
+            }
           }
         }
 
-        console.log("✅ Synced project data for:", projectId);
+        console.log("✅ Saved project data including select values:", projectId);
       } catch (err) {
-        console.error("❌ Failed to save project data:", err);
+        console.error("❌ Failed to sync project data:", err);
       }
     };
 

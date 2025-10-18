@@ -1,6 +1,6 @@
 CREATE TABLE `attribute_values` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`observation_id` integer NOT NULL,
+	`observation_id` integer,
 	`attribute_id` integer NOT NULL,
 	`value_text` text,
 	FOREIGN KEY (`observation_id`) REFERENCES `observations`(`id`) ON UPDATE no action ON DELETE cascade,

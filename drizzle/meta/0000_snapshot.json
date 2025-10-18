@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "cde6a971-ddeb-4ee8-82f1-466228491f00",
+  "id": "0cf0b903-3869-4ccc-9fdf-babf1b905943",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attribute_values": {
@@ -18,7 +18,7 @@
           "name": "observation_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "attribute_id": {
