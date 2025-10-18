@@ -10,12 +10,13 @@ import {
 import MapView, { Region } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useDrawer } from "@/context/DrawerContext"; // ✅ import your context hook
+import { useDrawer } from "@/context/DrawerContext";
+import EnterDataButton from "@/components/general/EnterDataButton";
 
 export default function Map() {
   const [region, setRegion] = useState<Region | null>(null);
   const insets = useSafeAreaInsets();
-  const { openDrawer } = useDrawer(); // ✅ access drawer control
+  const { openDrawer } = useDrawer();
 
   useEffect(() => {
     (async () => {
@@ -53,8 +54,7 @@ export default function Map() {
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
       });
-      // ✅ Open drawer when pressed
-      openDrawer();
+      openDrawer(); // ✅ open side drawer
     } catch (err) {
       Alert.alert("Error", "Could not fetch location");
     }
@@ -85,13 +85,15 @@ export default function Map() {
       <TouchableOpacity
         onPress={handleMarkerPress}
         activeOpacity={0.8}
-        style={[
-          styles.markerButton,
-          { top: insets.top + 10 }, // respect safe area
-        ]}
+        style={[styles.markerButton, { top: insets.top + 10 }]}
       >
         <Ionicons name="location-sharp" size={24} color="#fff" />
       </TouchableOpacity>
+
+      {/* ✅ Enter Data Button — bottom center */}
+      <View style={[styles.enterDataWrapper, { bottom: insets.bottom + 100 }]}>
+        <EnterDataButton onPress={() => console.log("Enter Data pressed")} />
+      </View>
     </View>
   );
 }
@@ -108,7 +110,7 @@ const styles = StyleSheet.create({
   markerButton: {
     position: "absolute",
     right: 20,
-    backgroundColor: "#7a6161ff", // match your app color
+    backgroundColor: "#7a6161ff",
     padding: 12,
     borderRadius: 50,
     elevation: 5,
@@ -116,5 +118,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
+  },
+  enterDataWrapper: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
   },
 });

@@ -11,6 +11,7 @@ import {
   SelectOptionsModal,
 } from "@/components/new-project helper/popups";
 import { styles } from "@/components/new-project helper/styles";
+import { router } from "expo-router";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -81,7 +82,7 @@ export default function NewProjectComp({ projectId, projectName }: Props) {
   const insets = useSafeAreaInsets();
 
   const handleStartSurvey = () => {
-    console.log("Starting survey with objects:", objects);
+    router.push("/(app)/(drawer)/(tabs)/Map");
   };
 
   return (
@@ -251,9 +252,7 @@ export default function NewProjectComp({ projectId, projectName }: Props) {
           setOption={setSelectValues}
           handleAdd={addSelectOption}
         />
-        <View
-          style={[styles.fixedButtonContainer, { bottom: 0}]}
-        >
+        <View style={[styles.fixedButtonContainer, { bottom: 0 }]}>
           <TouchableOpacity
             style={styles.startSurveyButton}
             onPress={handleStartSurvey}
