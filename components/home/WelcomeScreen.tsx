@@ -1,9 +1,12 @@
-import { projects } from "@/db/schema";
+import { attributes, attributeValues, objectTypes, observations, projects, surveySessions } from "@/db/schema";
 import { useProjects } from "@/hooks/useProjects";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/expo-sqlite";
+import * as FileSystem from "expo-file-system/legacy";
 import { useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
+import * as DocumentPicker from "expo-document-picker";
 import { useSQLiteContext } from "expo-sqlite";
 import React, { useState } from "react";
 import {
@@ -31,6 +34,60 @@ const WelcomeScreen = () => {
   const [showPrompt, setShowPrompt] = useState(false);
   const [projectName, setProjectName] = useState("");
 
+
+
+
+  const handleExport = async (projectId: number, name: string) => {
+    try {
+      console.log("📤 Exporting project as CSV:", projectId);
+  
+      const proj = await db.select().from(projects).where(eq(projects.id, projectId));
+      const objs = await db.select().from(objectTypes).where(eq(objectTypes.project_id, projectId));
+      const attrs = await db.select().from(attributes);
+      const sessions = await db.select().from(surveySessions).where(eq(surveySessions.project_id, projectId));
+      const obs = await db.select().from(observations);
+      const vals = await db.select().from(attributeValues);
+  
+      const toCSV = (data: any[], title: string) => {
+        if (!data.length) return `${title}\n(no data)\n\n`;
+        const headers = Object.keys(data[0]);
+        const rows = data.map((r) => headers.map((h) => JSON.stringify(r[h] ?? "")).join(","));
+        return `${title}\n${headers.join(",")}\n${rows.join("\n")}\n\n`;
+      };
+  
+      const csv =
+        toCSV(proj, "PROJECTS") +
+        toCSV(objs, "OBJECT_TYPES") +
+        toCSV(attrs, "ATTRIBUTES") +
+        toCSV(sessions, "SURVEY_SESSIONS") +
+        toCSV(obs, "OBSERVATIONS") +
+        toCSV(vals, "ATTRIBUTE_VALUES");
+  
+      // ✅ Safe path
+      const filePath = `${(FileSystem as any).cacheDirectory}${name.replace(/\s+/g, "_")}_export.csv`;
+  
+      // ✅ FIX: use "utf8" directly
+      await FileSystem.writeAsStringAsync(filePath, csv, {
+        encoding: "utf8",
+      });
+  
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert("Sharing not available on this device.");
+        return;
+      }
+  
+      await Sharing.shareAsync(filePath, {
+        mimeType: "text/csv",
+        dialogTitle: "Export Project Data",
+        UTI: "public.comma-separated-values-text",
+      });
+  
+      console.log("✅ CSV shared successfully:", filePath);
+    } catch (err) {
+      console.error("❌ Export failed:", err);
+      Alert.alert("Error", "Failed to export CSV.");
+    }
+  };
   const createProject = async (name: string) => {
     try {
       const result = await db
@@ -95,7 +152,115 @@ const WelcomeScreen = () => {
     }
   };
 
-  const handleImportProject = () => {};
+
+  const handleImportProject = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+   
+      });
+  
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+  
+      const fileUri = result.assets[0].uri;
+      console.log("📂 Importing project from:", fileUri);
+  
+      // ✅ Read file
+      const fileData = await FileSystem.readAsStringAsync(fileUri, {
+        encoding: "utf8",
+      });
+  
+      // ✅ Parse CSV sections (split by blank lines)
+      const sections = fileData.split(/\n\s*\n/);
+      const parsed: Record<string, any[]> = {};
+  
+      for (const section of sections) {
+        const lines = section.trim().split("\n");
+        const title = lines.shift()?.trim();
+        if (!title || lines.length < 2) continue;
+  
+        const headers = lines[0].split(",").map((h) => h.trim());
+        const rows = lines.slice(1).map((line) => {
+          const values = line.split(",");
+          return Object.fromEntries(headers.map((h, i) => [h, values[i]?.replace(/(^"|"$)/g, "")]));
+        });
+        parsed[title] = rows;
+      }
+  
+      console.log("📊 Parsed CSV sections:", Object.keys(parsed));
+  
+      // ✅ Create new project (copy name)
+      const importedName =
+        parsed.PROJECTS?.[0]?.name || `Imported_${Date.now()}`;
+      const insertedProject = await db
+        .insert(projects)
+        .values({
+          name: importedName,
+          created_at: Date.now(),
+        })
+        .returning({ id: projects.id });
+  
+      const projectId = insertedProject[0]?.id;
+      if (!projectId) throw new Error("Failed to insert project");
+      console.log("🆕 Created imported project:", importedName);
+  
+      // ✅ Insert object types
+      const objMap = new Map<number, number>(); // oldId -> newId
+      if (parsed.OBJECT_TYPES) {
+        for (const [i, o] of parsed.OBJECT_TYPES.entries()) {
+          const res = await db
+            .insert(objectTypes)
+            .values({
+              project_id: projectId,
+              name: o.name,
+              color: o.color || "#7a6161ff",
+              order_index: i,
+            })
+            .returning({ id: objectTypes.id });
+          objMap.set(Number(o.id), res[0].id);
+        }
+      }
+  
+      // ✅ Insert attributes
+      const attrMap = new Map<number, number>();
+      if (parsed.ATTRIBUTES) {
+        for (const [i, a] of parsed.ATTRIBUTES.entries()) {
+          const objId = objMap.get(Number(a.object_type_id));
+          if (!objId) continue;
+          const res = await db
+            .insert(attributes)
+            .values({
+              object_type_id: objId,
+              label: a.label,
+              key: a.key,
+              type: a.type,
+              required: a.required === "1" || a.required === "true",
+              order_index: i,
+            })
+            .returning({ id: attributes.id });
+          attrMap.set(Number(a.id), res[0].id);
+        }
+      }
+  
+      // ✅ Insert select values
+      if (parsed.ATTRIBUTE_VALUES) {
+        for (const v of parsed.ATTRIBUTE_VALUES) {
+          const attrId = attrMap.get(Number(v.attribute_id));
+          if (!attrId) continue;
+          await db.insert(attributeValues).values({
+            attribute_id: attrId,
+            value_text: v.value_text,
+          });
+        }
+      }
+  
+      refreshDb();
+      Alert.alert("✅ Import Successful", `Project “${importedName}” added.`);
+      console.log("🎉 Project imported successfully!");
+    } catch (err) {
+      console.error("❌ Import failed:", err);
+      Alert.alert("Error", "Failed to import project.");
+    }
+  };
 
   return (
     <Animated.View
@@ -159,12 +324,23 @@ const WelcomeScreen = () => {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => deleteProject(item.id, item.name)}
-            >
-              <Text style={styles.deleteText}>🗑</Text>
-            </TouchableOpacity>
+            <View style={styles.actionButtons}>
+              {/* 🗑 Delete */}
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: "#b89a9aff" }]}
+                onPress={() => deleteProject(item.id, item.name)}
+              >
+                <Text style={styles.actionText}>🗑</Text>
+              </TouchableOpacity>
+
+              {/* 📤 Export */}
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: "#2E6EF0" }]}
+                onPress={() => handleExport(item.id, item.name)}
+              >
+                <Text style={styles.actionText}>⬇️</Text>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
         )}
         ListEmptyComponent={
@@ -275,6 +451,22 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#544141ff",
   },
+  actionButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  actionButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  actionText: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "600",
+  },
+
   projectDate: {
     fontSize: 13,
     color: "#7a6161cc",
