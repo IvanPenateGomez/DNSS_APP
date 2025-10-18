@@ -9,11 +9,19 @@ export default {
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
+      bundleIdentifier: "com.GNSS.APP",
       supportsTablet: true,
     },
     android: {
+      package: "com.GNSS.APP",
+
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
+      config: {
+        googleMaps: {
+          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+        },
+      },
     },
     web: {
       output: "static",

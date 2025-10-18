@@ -52,7 +52,7 @@ export default function RootLayout() {
           }}
         >
           <ThemeProvider
-            value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+            value={DefaultTheme}
           >
             <Stack>
               <Stack.Screen name="(app)" options={{ headerShown: false }} />
