@@ -9,6 +9,7 @@ const index = () => {
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
 
+
   useEffect(() => {
     const loadData = async () => {
       console.log("📂 Database path:", db.databasePath);

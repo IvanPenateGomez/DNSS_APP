@@ -1,5 +1,6 @@
 import BackButton from "@/components/general/BackButton";
 import NewProjectComp from "@/components/project/NewProjectComp";
+import { router } from "expo-router";
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, { SlideInLeft } from "react-native-reanimated";
@@ -9,15 +10,21 @@ const index = () => {
   const insets = useSafeAreaInsets();
 
   return (
-    <View
-      style={[
-        styles.container,
-        { paddingTop: insets.top + 15, },
-      ]}
-    >
-      <Animated.View entering={SlideInLeft.duration(400).delay(150)} style={{position: 'absolute', top: insets.top + 25, zIndex: 10, left: 10}}>
-        <BackButton />
-      </Animated.View>
+    <View style={[styles.container, { paddingTop: insets.top + 15 }]}>
+      <View
+        style={{
+          position: "absolute",
+          top: insets.top + 25,
+          zIndex: 50,
+          left: 10,
+        }}
+      >
+        <BackButton
+          onPress={() => {
+            router.replace("/(app)/(drawer)/(notabs)");
+          }}
+        />
+      </View>
       <NewProjectComp />
     </View>
   );

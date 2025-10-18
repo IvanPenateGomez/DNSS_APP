@@ -1,7 +1,8 @@
 import DrawerProvider from "@/context/DrawerContext";
-import { Stack } from "expo-router";
-import React from "react";
+import { router, Stack } from "expo-router";
+import React, { useEffect } from "react";
 export default function _userLayout() {
+
   return (
     <DrawerProvider>
       <Stack>

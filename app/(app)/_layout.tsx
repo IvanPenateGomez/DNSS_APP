@@ -1,8 +1,9 @@
 import { GLOBAL_APP_COLOR } from "@/constants/GlobalStyles";
 import DrawerContextProvider, { useDrawer } from "@/context/DrawerContext";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import Drawer from "expo-router/drawer";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -16,6 +17,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const drawerWidth = 240;
+
 
 const exampleItems = [
   { id: 1, label: "Tree", icon: "leaf-outline" },

@@ -4,6 +4,7 @@ import { View } from "react-native";
 
 export default function Index() {
   useEffect(() => {
+    console.log("IN HEERER!")
     router.replace("/(app)/(drawer)/(notabs)");
   }, []);
 

@@ -33,6 +33,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal:5,
     borderRadius: 12,
+    zIndex: 30,
   },
   text: {
     color: "#fff",
