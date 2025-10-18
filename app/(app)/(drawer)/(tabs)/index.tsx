@@ -1,6 +1,7 @@
 import BackButton from "@/components/general/BackButton";
 import NewProjectComp from "@/components/project/NewProjectComp";
 import { useProjectStore } from "@/zustand/projectId";
+import { useRefreshDbStore } from "@/zustand/refreshDbStore";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
@@ -38,6 +39,8 @@ const Index = () => {
     if (projectId && projectId > 0) {
       setProjectId(projectId);
       console.log("📦 Set global projectId:", projectId);
+      useRefreshDbStore.getState().increment();
+
     }
   }, [projectId]);
 

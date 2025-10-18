@@ -1,6 +1,7 @@
 import { saveObservation } from "@/hooks/saveObservation";
 import { useProjectObjects } from "@/hooks/useProjectObjects";
 import { useProjectStore } from "@/zustand/projectId";
+import { useRefreshDbStore } from "@/zustand/refreshDbStore";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import * as Location from "expo-location";
@@ -141,6 +142,8 @@ export default function EnterDataModal({
   
     try {
       await saveObservation(db, projectId, expandedObjectId, coords, selectedValues);
+      useRefreshDbStore.getState().increment();
+
       console.log("✅ Observation saved to database");
       onClose();
     } catch (err) {
