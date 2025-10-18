@@ -1,3 +1,4 @@
+import { addObjectData } from "@/db/addObjectData";
 import migrations from "@/drizzle/migrations";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
@@ -24,7 +25,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (success) {
-      // addIntialData(db);
+       addObjectData(db);
     }
   }, [success, error]);
   const insets = useSafeAreaInsets();
