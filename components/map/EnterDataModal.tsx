@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import { useProjectStore } from "@/zustand/projectId";
 import { useProjectObjects } from "@/hooks/useProjectObjects";
 
 type Step = "method" | "manual" | "object";
+type ValueType = "select" | "boolean" | "text";
 
 interface Props {
   visible: boolean;
@@ -27,13 +28,25 @@ export default function EnterDataModal({ visible, onClose, onContinue }: Props) 
   const [modalStep, setModalStep] = useState<Step>("method");
   const [manualLat, setManualLat] = useState("");
   const [manualLon, setManualLon] = useState("");
-  const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
-
-  // ✅ projectId from store
-  const projectId = useProjectStore((state) => state.projectId);
+  const [expandedObjectId, setExpandedObjectId] = useState<number | null>(null);
+  const [selectedValues, setSelectedValues] = useState<Record<number, any>>({}); // attrId -> value(s)
+  const projectId = useProjectStore((s) => s.projectId);
   const { data: objects, loading } = useProjectObjects(projectId);
 
+  // Reset when opening modal
+  useEffect(() => {
+    if (visible) {
+      setModalStep("method");
+      setManualLat("");
+      setManualLon("");
+      setCoords(null);
+      setExpandedObjectId(null);
+      setSelectedValues({});
+    }
+  }, [visible]);
+
+  // ------------------ Step 1: Location handling ------------------
   const handleChooseCurrent = async () => {
     try {
       const location = await Location.getCurrentPositionAsync({});
@@ -41,18 +54,10 @@ export default function EnterDataModal({ visible, onClose, onContinue }: Props) 
       setCoords({ lat: latitude, lon: longitude });
       setModalStep("object");
     } catch {
-      Alert.alert("Error", "Could not get current location");
+      Alert.alert("Error", "Could not get your current location");
     }
   };
-  useEffect(() => {
-    if (visible) {
-      setModalStep("method");
-      setManualLat("");
-      setManualLon("");
-      setSelectedObjectId(null);
-      setCoords(null);
-    }
-  }, [visible]);
+
   const handleEnterManually = () => setModalStep("manual");
 
   const handleManualConfirm = () => {
@@ -66,17 +71,44 @@ export default function EnterDataModal({ visible, onClose, onContinue }: Props) 
     setModalStep("object");
   };
 
-  const handleContinue = () => {
-    if (!selectedObjectId || !coords) {
-      Alert.alert("Missing info", "Please select an object and location first.");
-      return;
-    }
-    onContinue(selectedObjectId, coords);
-    onClose();
-    setModalStep("method");
-    setSelectedObjectId(null);
+  // ------------------ Step 2: Object & Attribute Logic ------------------
+
+  const toggleExpand = (objectId: number) => {
+    setExpandedObjectId((prev) => (prev === objectId ? null : objectId));
   };
 
+  const handleValueToggle = (attrId: number, value: string, valueType: ValueType) => {
+    setSelectedValues((prev) => {
+      const current = prev[attrId] ?? (valueType === "select" ? [] : null);
+
+      if (valueType === "boolean") {
+        return { ...prev, [attrId]: value }; // single true/false
+      }
+
+      if (Array.isArray(current)) {
+        const exists = current.includes(value);
+        return { ...prev, [attrId]: exists ? current.filter((v) => v !== value) : [...current, value] };
+      }
+
+      return prev;
+    });
+  };
+
+  const handleContinue = () => {
+    if (!coords) {
+      Alert.alert("Missing info", "Please select a location first.");
+      return;
+    }
+
+    console.log("✅ Final selection:");
+    console.log("Coordinates:", coords);
+    console.log("Selected attribute values:", selectedValues);
+
+    onContinue(expandedObjectId ?? 0, coords);
+    onClose();
+  };
+
+  // ------------------ Render ------------------
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.modalOverlay}>
@@ -153,20 +185,100 @@ export default function EnterDataModal({ visible, onClose, onContinue }: Props) 
               ) : objects.length === 0 ? (
                 <Text style={styles.emptyText}>No objects found for this project.</Text>
               ) : (
-                <ScrollView style={{ width: "100%", maxHeight: 250 }}>
-                  {objects.map((obj) => (
-                    <TouchableOpacity
-                      key={obj.id}
-                      style={[
-                        styles.objectCard,
-                        selectedObjectId === obj.id && styles.objectCardSelected,
-                      ]}
-                      onPress={() => setSelectedObjectId(obj.id)}
-                    >
-                      <View style={[styles.colorCircle, { backgroundColor: obj.color }]} />
-                      <Text style={styles.objectText}>{obj.name}</Text>
-                    </TouchableOpacity>
-                  ))}
+                <ScrollView style={{ width: "100%", maxHeight: 380 }}>
+                  {objects.map((obj) => {
+                    const expanded = expandedObjectId === obj.id;
+                    return (
+                      <View key={obj.id}>
+                        {/* Object Header */}
+                        <TouchableOpacity
+                          style={[
+                            styles.objectCard,
+                            { backgroundColor: expanded ? "#e5f5e0" : "#f5f2f0" },
+                          ]}
+                          onPress={() => toggleExpand(obj.id)}
+                        >
+                          <Text style={[styles.objectText, { color: "#333", fontWeight: "600" }]}>
+                            {obj.name}
+                          </Text>
+                        </TouchableOpacity>
+
+                        {/* Expanded Attributes */}
+                        {expanded && (
+                          <View style={styles.attrContainer}>
+                            {obj.attributes.map((attr) => (
+                              <View key={attr.id} style={styles.attrBlock}>
+                                <Text style={styles.attrTitle}>{attr.name}</Text>
+
+                                {/* SELECT TYPE */}
+                                {attr.valueType === "select" && (
+                                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                    {attr.values.map((val) => {
+                                      const selected = selectedValues[attr.id]?.includes(val.name);
+                                      return (
+                                        <TouchableOpacity
+                                          key={val.id}
+                                          style={[
+                                            styles.valueChip,
+                                            selected && styles.valueChipSelected,
+                                          ]}
+                                          onPress={() =>
+                                            handleValueToggle(attr.id, val.name, attr.valueType)
+                                          }
+                                        >
+                                          <Text
+                                            style={{
+                                              color: selected ? "#fff" : "#333",
+                                              fontWeight: "500",
+                                            }}
+                                          >
+                                            {val.name}
+                                          </Text>
+                                        </TouchableOpacity>
+                                      );
+                                    })}
+                                  </ScrollView>
+                                )}
+
+                                {/* BOOLEAN TYPE */}
+                                {attr.valueType === "boolean" && (
+                                  <View style={styles.booleanRow}>
+                                    {["True", "False"].map((opt) => {
+                                      const selected = selectedValues[attr.id] === opt;
+                                      return (
+                                        <TouchableOpacity
+                                          key={opt}
+                                          style={[
+                                            styles.boolButton,
+                                            selected &&
+                                              (opt === "True"
+                                                ? styles.boolTrue
+                                                : styles.boolFalse),
+                                          ]}
+                                          onPress={() =>
+                                            handleValueToggle(attr.id, opt, attr.valueType)
+                                          }
+                                        >
+                                          <Text
+                                            style={{
+                                              color: selected ? "#fff" : "#333",
+                                              fontWeight: "500",
+                                            }}
+                                          >
+                                            {opt}
+                                          </Text>
+                                        </TouchableOpacity>
+                                      );
+                                    })}
+                                  </View>
+                                )}
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
                 </ScrollView>
               )}
 
@@ -184,6 +296,7 @@ export default function EnterDataModal({ visible, onClose, onContinue }: Props) 
   );
 }
 
+// ---------------- STYLES ----------------
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
@@ -195,21 +308,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 25,
     borderRadius: 14,
-    width: "80%",
+    width: "85%",
     alignItems: "center",
     elevation: 4,
   },
-  closeButton: {
-    position: "absolute",
-    right: 12,
-    top: 12,
-    padding: 4,
-  },
+  closeButton: { position: "absolute", right: 12, top: 12, padding: 4 },
   modalTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: "#7a6161ff",
-    marginBottom: 20,
+    marginBottom: 15,
     textAlign: "center",
   },
   modalOption: {
@@ -223,11 +331,7 @@ const styles = StyleSheet.create({
     width: "90%",
     justifyContent: "center",
   },
-  modalOptionText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "500",
-  },
+  modalOptionText: { color: "#fff", fontSize: 15, fontWeight: "500" },
   input: {
     borderWidth: 1,
     borderColor: "#ddd",
@@ -238,41 +342,42 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#333",
   },
-  coordText: {
-    color: "#555",
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  emptyText: {
-    color: "#777",
-    fontSize: 14,
-    textAlign: "center",
-    marginVertical: 20,
-  },
+  coordText: { color: "#555", fontSize: 14, marginBottom: 12 },
+  emptyText: { color: "#777", fontSize: 14, textAlign: "center", marginVertical: 20 },
   objectCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f5f2f0",
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginVertical: 5,
     marginHorizontal: 8,
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "#ccc",
   },
-  objectCardSelected: {
-    borderColor: "#7a6161ff",
-    backgroundColor: "#f7ebe8",
+  objectText: { fontSize: 16 },
+  attrContainer: {
+    marginLeft: 12,
+    marginBottom: 10,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    padding: 8,
   },
-  colorCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    marginRight: 10,
+  attrBlock: { marginVertical: 5 },
+  attrTitle: { fontSize: 15, fontWeight: "500", color: "#555", marginBottom: 4 },
+  valueChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "#e6e6e6",
+    borderRadius: 20,
+    marginRight: 8,
   },
-  objectText: {
-    fontSize: 15,
-    color: "#333",
+  valueChipSelected: { backgroundColor: "#7a6161ff" },
+  booleanRow: { flexDirection: "row", gap: 10 },
+  boolButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: "#eee",
   },
+  boolTrue: { backgroundColor: "#7ac77a" },
+  boolFalse: { backgroundColor: "#de6d6d" },
 });
