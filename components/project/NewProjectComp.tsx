@@ -121,7 +121,7 @@ export default function NewProjectComp({ projectId, projectName }: Props) {
               {/* Show attributes */}
               {obj.attributes.map(
                 (attr: Attribute) => (
-                  console.log("NEW ATTRIBUTE VALUES:", attr),
+               
                   (
                     <View
                       key={attr.id}
@@ -162,7 +162,7 @@ export default function NewProjectComp({ projectId, projectName }: Props) {
 
                       {/* List values below the attribute */}
                       {attr.values.length > 0 &&
-                        (console.log("VALUES TO SHOW:", attr.values),
+                        (
                         (
                           <View style={{ marginTop: 5, marginLeft: 10 }}>
                             <Text

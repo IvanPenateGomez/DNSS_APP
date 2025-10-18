@@ -1,11 +1,17 @@
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+/* ───────────────────────────────
+ *  PROJECTS
+ * ─────────────────────────────── */
 export const projects = sqliteTable("projects", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   created_at: integer("created_at").notNull(), // timestamp (ms)
 });
 
+/* ───────────────────────────────
+ *  OBJECT TYPES (belongs to project)
+ * ─────────────────────────────── */
 export const objectTypes = sqliteTable("object_types", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   project_id: integer("project_id")
@@ -16,6 +22,9 @@ export const objectTypes = sqliteTable("object_types", {
   order_index: integer("order_index").notNull().default(0),
 });
 
+/* ───────────────────────────────
+ *  ATTRIBUTES (belongs to object type)
+ * ─────────────────────────────── */
 export const attributes = sqliteTable("attributes", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   object_type_id: integer("object_type_id")
@@ -23,11 +32,14 @@ export const attributes = sqliteTable("attributes", {
     .references(() => objectTypes.id, { onDelete: "cascade" }),
   label: text("label").notNull(),
   key: text("key").notNull(),
-  type: text("type").notNull().default("text"), // "text", "number", "boolean", etc.
+  type: text("type").notNull().default("text"), // e.g. "text", "number", "boolean"
   required: integer("required", { mode: "boolean" }).notNull().default(false),
   order_index: integer("order_index").notNull().default(0),
 });
 
+/* ───────────────────────────────
+ *  SURVEY SESSIONS (belongs to project)
+ * ─────────────────────────────── */
 export const surveySessions = sqliteTable("survey_sessions", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   project_id: integer("project_id")
@@ -37,6 +49,9 @@ export const surveySessions = sqliteTable("survey_sessions", {
   ended_at: integer("ended_at"),
 });
 
+/* ───────────────────────────────
+ *  OBSERVATIONS (belongs to session + object type)
+ * ─────────────────────────────── */
 export const observations = sqliteTable("observations", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   session_id: integer("session_id")
@@ -47,21 +62,20 @@ export const observations = sqliteTable("observations", {
     .references(() => objectTypes.id, { onDelete: "cascade" }),
   latitude: real("latitude").notNull(),
   longitude: real("longitude").notNull(),
-  captured_at: integer("captured_at").notNull(),
+  captured_at: integer("captured_at").notNull(), // timestamp (ms)
   notes: text("notes"),
   status: text("status").notNull().default("draft"),
 });
 
+/* ───────────────────────────────
+ *  ATTRIBUTE VALUES (links observation + attribute)
+ * ─────────────────────────────── */
 export const attributeValues = sqliteTable("attribute_values", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-
-  // 👇 now optional
   observation_id: integer("observation_id")
     .references(() => observations.id, { onDelete: "cascade" }),
-
   attribute_id: integer("attribute_id")
     .notNull()
     .references(() => attributes.id, { onDelete: "cascade" }),
-
-  value_text: text("value_text"),
+  value_text: text("value_text"), // stores user input as text
 });

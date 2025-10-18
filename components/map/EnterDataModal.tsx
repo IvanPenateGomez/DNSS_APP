@@ -1,7 +1,10 @@
+import { saveObservation } from "@/hooks/saveObservation";
 import { useProjectObjects } from "@/hooks/useProjectObjects";
 import { useProjectStore } from "@/zustand/projectId";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { drizzle } from "drizzle-orm/expo-sqlite";
 import * as Location from "expo-location";
+import { useSQLiteContext } from "expo-sqlite";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -53,6 +56,8 @@ export default function EnterDataModal({
   const [selectedValues, setSelectedValues] = useState<Record<number, any>>({}); // attrId -> value(s)
   const projectId = useProjectStore((s) => s.projectId);
   const { data: objects, loading } = useProjectObjects(projectId);
+  const sqliteDb = useSQLiteContext();
+  const db = drizzle(sqliteDb);
 
   // Reset when opening modal
   useEffect(() => {
@@ -123,20 +128,27 @@ export default function EnterDataModal({
     });
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!coords) {
       Alert.alert("Missing info", "Please select a location first.");
       return;
     }
-
-    console.log("✅ Final selection:");
-    console.log("Coordinates:", coords);
-    console.log("Selected attribute values:", selectedValues);
-
-    onContinue(expandedObjectId ?? 0, coords);
-    onClose();
+  
+    if (!expandedObjectId) {
+      Alert.alert("Missing object", "Please select an object first.");
+      return;
+    }
+  
+    try {
+      await saveObservation(db, projectId, expandedObjectId, coords, selectedValues);
+      console.log("✅ Observation saved to database");
+      onClose();
+    } catch (err) {
+      console.error("❌ Failed to save observation:", err);
+      Alert.alert("Error", "Could not save observation. Please try again.");
+    }
   };
-
+  
   // ------------------ Render ------------------
   return (
     <Modal transparent visible={visible} animationType="fade">
