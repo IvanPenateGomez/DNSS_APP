@@ -1,12 +1,19 @@
-import { attributes, attributeValues, objectTypes, observations, projects, surveySessions } from "@/db/schema";
+import {
+  attributes,
+  attributeValues,
+  objectTypes,
+  observations,
+  projects,
+  surveySessions,
+} from "@/db/schema";
 import { useProjects } from "@/hooks/useProjects";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/expo-sqlite";
+import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
-import * as DocumentPicker from "expo-document-picker";
 import { useSQLiteContext } from "expo-sqlite";
 import React, { useState } from "react";
 import {
@@ -33,61 +40,101 @@ const WelcomeScreen = () => {
   const { data: projectList } = useProjects();
   const [showPrompt, setShowPrompt] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [exportOptionsVisible, setExportOptionsVisible] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
 
-
-
-
-  const handleExport = async (projectId: number, name: string) => {
+  const handleExport = async (
+    projectId: number,
+    name: string,
+    type: "whole" | "locations"
+  ) => {
     try {
-      console.log("📤 Exporting project as CSV:", projectId);
-  
-      const proj = await db.select().from(projects).where(eq(projects.id, projectId));
-      const objs = await db.select().from(objectTypes).where(eq(objectTypes.project_id, projectId));
-      const attrs = await db.select().from(attributes);
-      const sessions = await db.select().from(surveySessions).where(eq(surveySessions.project_id, projectId));
-      const obs = await db.select().from(observations);
-      const vals = await db.select().from(attributeValues);
-  
-      const toCSV = (data: any[], title: string) => {
-        if (!data.length) return `${title}\n(no data)\n\n`;
-        const headers = Object.keys(data[0]);
-        const rows = data.map((r) => headers.map((h) => JSON.stringify(r[h] ?? "")).join(","));
-        return `${title}\n${headers.join(",")}\n${rows.join("\n")}\n\n`;
-      };
-  
-      const csv =
-        toCSV(proj, "PROJECTS") +
-        toCSV(objs, "OBJECT_TYPES") +
-        toCSV(attrs, "ATTRIBUTES") +
-        toCSV(sessions, "SURVEY_SESSIONS") +
-        toCSV(obs, "OBSERVATIONS") +
-        toCSV(vals, "ATTRIBUTE_VALUES");
-  
-      // ✅ Safe path
-      const filePath = `${(FileSystem as any).cacheDirectory}${name.replace(/\s+/g, "_")}_export.csv`;
-  
-      // ✅ FIX: use "utf8" directly
-      await FileSystem.writeAsStringAsync(filePath, csv, {
-        encoding: "utf8",
-      });
-  
+      console.log(`📤 Exporting project (${type}) as CSV:`, projectId);
+
+      let csv = "";
+
+      if (type === "whole") {
+        // 🧩 Full project export
+        const proj = await db
+          .select()
+          .from(projects)
+          .where(eq(projects.id, projectId));
+        const objs = await db
+          .select()
+          .from(objectTypes)
+          .where(eq(objectTypes.project_id, projectId));
+        const attrs = await db.select().from(attributes);
+        const sessions = await db
+          .select()
+          .from(surveySessions)
+          .where(eq(surveySessions.project_id, projectId));
+        const obs = await db.select().from(observations);
+        const vals = await db.select().from(attributeValues);
+
+        const toCSV = (data: any[], title: string) => {
+          if (!data.length) return `${title}\n(no data)\n\n`;
+          const headers = Object.keys(data[0]);
+          const rows = data.map((r) =>
+            headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")
+          );
+          return `${title}\n${headers.join(",")}\n${rows.join("\n")}\n\n`;
+        };
+
+        csv =
+          toCSV(proj, "PROJECTS") +
+          toCSV(objs, "OBJECT_TYPES") +
+          toCSV(attrs, "ATTRIBUTES") +
+          toCSV(sessions, "SURVEY_SESSIONS") +
+          toCSV(obs, "OBSERVATIONS") +
+          toCSV(vals, "ATTRIBUTE_VALUES");
+      } else {
+        // 📍 Only export observations
+        const obs = await db
+          .select()
+          .from(observations)
+          .where(eq(observations.session_id, projectId)); // or filter differently if needed
+
+        if (!obs.length) {
+          Alert.alert("No data", "No observations found.");
+          return;
+        }
+
+        const headers = Object.keys(obs[0]);
+        const rows = obs.map((r) =>
+          headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")
+        );
+        csv = `OBSERVATIONS\n${headers.join(",")}\n${rows.join("\n")}\n\n`;
+      }
+
+      const filePath = `${(FileSystem as any).cacheDirectory}${name.replace(
+        /\s+/g,
+        "_"
+      )}_${type}_export.csv`;
+      await FileSystem.writeAsStringAsync(filePath, csv, { encoding: "utf8" });
+
       if (!(await Sharing.isAvailableAsync())) {
         Alert.alert("Sharing not available on this device.");
         return;
       }
-  
+
       await Sharing.shareAsync(filePath, {
         mimeType: "text/csv",
-        dialogTitle: "Export Project Data",
+        dialogTitle: `Export ${
+          type === "whole" ? "Project" : "Locations"
+        } Data`,
         UTI: "public.comma-separated-values-text",
       });
-  
+
       console.log("✅ CSV shared successfully:", filePath);
     } catch (err) {
       console.error("❌ Export failed:", err);
       Alert.alert("Error", "Failed to export CSV.");
     }
   };
+
   const createProject = async (name: string) => {
     try {
       const result = await db
@@ -152,42 +199,41 @@ const WelcomeScreen = () => {
     }
   };
 
-
   const handleImportProject = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-   
-      });
-  
+      const result = await DocumentPicker.getDocumentAsync({});
+
       if (result.canceled || !result.assets?.[0]?.uri) return;
-  
+
       const fileUri = result.assets[0].uri;
       console.log("📂 Importing project from:", fileUri);
-  
+
       // ✅ Read file
       const fileData = await FileSystem.readAsStringAsync(fileUri, {
         encoding: "utf8",
       });
-  
+
       // ✅ Parse CSV sections (split by blank lines)
       const sections = fileData.split(/\n\s*\n/);
       const parsed: Record<string, any[]> = {};
-  
+
       for (const section of sections) {
         const lines = section.trim().split("\n");
         const title = lines.shift()?.trim();
         if (!title || lines.length < 2) continue;
-  
+
         const headers = lines[0].split(",").map((h) => h.trim());
         const rows = lines.slice(1).map((line) => {
           const values = line.split(",");
-          return Object.fromEntries(headers.map((h, i) => [h, values[i]?.replace(/(^"|"$)/g, "")]));
+          return Object.fromEntries(
+            headers.map((h, i) => [h, values[i]?.replace(/(^"|"$)/g, "")])
+          );
         });
         parsed[title] = rows;
       }
-  
+
       console.log("📊 Parsed CSV sections:", Object.keys(parsed));
-  
+
       // ✅ Create new project (copy name)
       const importedName =
         parsed.PROJECTS?.[0]?.name || `Imported_${Date.now()}`;
@@ -198,11 +244,11 @@ const WelcomeScreen = () => {
           created_at: Date.now(),
         })
         .returning({ id: projects.id });
-  
+
       const projectId = insertedProject[0]?.id;
       if (!projectId) throw new Error("Failed to insert project");
       console.log("🆕 Created imported project:", importedName);
-  
+
       // ✅ Insert object types
       const objMap = new Map<number, number>(); // oldId -> newId
       if (parsed.OBJECT_TYPES) {
@@ -219,7 +265,7 @@ const WelcomeScreen = () => {
           objMap.set(Number(o.id), res[0].id);
         }
       }
-  
+
       // ✅ Insert attributes
       const attrMap = new Map<number, number>();
       if (parsed.ATTRIBUTES) {
@@ -240,7 +286,7 @@ const WelcomeScreen = () => {
           attrMap.set(Number(a.id), res[0].id);
         }
       }
-  
+
       // ✅ Insert select values
       if (parsed.ATTRIBUTE_VALUES) {
         for (const v of parsed.ATTRIBUTE_VALUES) {
@@ -252,7 +298,7 @@ const WelcomeScreen = () => {
           });
         }
       }
-  
+
       refreshDb();
       Alert.alert("✅ Import Successful", `Project “${importedName}” added.`);
       console.log("🎉 Project imported successfully!");
@@ -336,7 +382,10 @@ const WelcomeScreen = () => {
               {/* 📤 Export */}
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: "#2E6EF0" }]}
-                onPress={() => handleExport(item.id, item.name)}
+                onPress={() => {
+                  setSelectedProject({ id: item.id, name: item.name });
+                  setExportOptionsVisible(true);
+                }}
               >
                 <Text style={styles.actionText}>⬇️</Text>
               </TouchableOpacity>
@@ -384,6 +433,60 @@ const WelcomeScreen = () => {
                 <Text style={styles.modalButtonText}>Create</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 📤 Export Options Modal */}
+      {/* 📤 Export Options Modal */}
+      <Modal transparent visible={exportOptionsVisible} animationType="fade">
+        <View style={styles.exportOverlay}>
+          <View style={styles.exportBox}>
+            <Text style={styles.exportTitle}>📤 Export Options</Text>
+            <Text style={styles.exportSubtitle}>
+              What do you want to export?
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.exportButton, { backgroundColor: "#2E6EF0" }]}
+              onPress={async () => {
+                if (selectedProject) {
+                  setExportOptionsVisible(false);
+                  await handleExport(
+                    selectedProject.id,
+                    selectedProject.name,
+                    "whole"
+                  );
+                }
+              }}
+            >
+              <Text style={styles.exportButtonText}>📦 Whole Project</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.exportButton, { backgroundColor: "#7a6161ff" }]}
+              onPress={async () => {
+                if (selectedProject) {
+                  setExportOptionsVisible(false);
+                  await handleExport(
+                    selectedProject.id,
+                    selectedProject.name,
+                    "locations"
+                  );
+                }
+              }}
+            >
+              <Text style={styles.exportButtonText}>📍 Locations Data</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.exportButton, { backgroundColor: "#ccc" }]}
+              onPress={() => setExportOptionsVisible(false)}
+            >
+              <Text style={[styles.exportButtonText, { color: "#333" }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -465,6 +568,49 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#fff",
     fontWeight: "600",
+  },
+  exportOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  exportBox: {
+    width: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 25,
+    paddingHorizontal: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+    alignItems: "center",
+  },
+  exportTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#2E6EF0",
+    marginBottom: 8,
+  },
+  exportSubtitle: {
+    fontSize: 15,
+    color: "#555",
+    marginBottom: 18,
+    textAlign: "center",
+  },
+  exportButton: {
+    width: "85%",
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginVertical: 6,
+    alignItems: "center",
+  },
+  exportButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
   },
 
   projectDate: {

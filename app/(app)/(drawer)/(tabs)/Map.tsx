@@ -171,7 +171,7 @@ export default function Map() {
       </TouchableOpacity>
 
       {/* ➕ Enter Data Button */}
-      <View style={[styles.enterDataWrapper, { bottom: insets.bottom + 100 }]}>
+      <View style={[styles.enterDataWrapper, { bottom: insets.bottom + 150 }]}>
         <EnterDataButton onPress={() => setShowModal(true)} />
       </View>
 
