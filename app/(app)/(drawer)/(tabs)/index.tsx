@@ -7,9 +7,25 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const Index = () => {
   const insets = useSafeAreaInsets();
-  const { projectId, name } = useLocalSearchParams(); // ✅ get params from route
+  const params = useLocalSearchParams();
 
-  console.log("🧭 Received params:", projectId, name);
+  // ✅ Extract and sanitize params
+  const rawProjectId = params.projectId;
+  const rawName = params.name;
+
+  // Parse projectId to number (fallback 0 if missing or invalid)
+  const projectId =
+    typeof rawProjectId === "string" ? Number(rawProjectId) :
+    Array.isArray(rawProjectId) ? Number(rawProjectId[0]) :
+    0;
+
+  // Normalize name to string
+  const projectName =
+    typeof rawName === "string" ? rawName :
+    Array.isArray(rawName) ? rawName[0] :
+    undefined;
+
+  console.log("🧭 Received params:", projectId, projectName);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 15 }]}>
@@ -19,19 +35,19 @@ const Index = () => {
           top: insets.top + 25,
           zIndex: 50,
           left: 10,
-          right: 10
+          right: 10,
         }}
       >
         <BackButton
-          label={name as string}
+          label={projectName}
           onPress={() => {
             router.replace("/(app)/(drawer)/(notabs)");
           }}
         />
       </View>
 
-      {/* ✅ Pass the params to your component */}
-      <NewProjectComp projectId={projectId} projectName={name} />
+      {/* ✅ Safe & typed props */}
+      <NewProjectComp projectId={projectId} projectName={projectName} />
     </View>
   );
 };
@@ -42,9 +58,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f2f0",
-  },
-  text: {
-    fontSize: 18,
-    color: "#333",
   },
 });

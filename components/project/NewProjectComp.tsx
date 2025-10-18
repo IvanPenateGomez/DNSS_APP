@@ -37,7 +37,12 @@ type ObjectItem = {
   attributes: Attribute[];
 };
 
-export default function NewProjectComp() {
+type Props = {
+  projectId: number;
+  projectName?: string;
+};
+
+export default function NewProjectComp({ projectId, projectName }: Props) {
   const {
     objects,
     inputVisible,
@@ -71,7 +76,7 @@ export default function NewProjectComp() {
     resetInputModal,
     resetColorModal,
     resetHexModal,
-  } = useFormState();
+  } = useFormState(projectId);
 
   const insets = useSafeAreaInsets();
 
@@ -247,7 +252,7 @@ export default function NewProjectComp() {
           handleAdd={addSelectOption}
         />
         <View
-          style={[styles.fixedButtonContainer, { bottom: insets.bottom + 120 }]}
+          style={[styles.fixedButtonContainer, { bottom: 0}]}
         >
           <TouchableOpacity
             style={styles.startSurveyButton}

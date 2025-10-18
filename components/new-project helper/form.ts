@@ -1,10 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Platform } from "react-native";
-import { ObjectService } from "./objects";
 import { AttributeService } from "./attributes";
 import { isValidColor } from "./colors";
+import { ObjectService } from "./objects";
+import { useSQLiteContext } from "expo-sqlite";
+import { drizzle } from "drizzle-orm/expo-sqlite";
+import { attributes, objectTypes } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { useProjectSync } from "@/hooks/useProjectSync";
 
-export type ValueType = "text" | "number" | "boolean" | "date" | "image" | "select";
+export type ValueType =
+  | "text"
+  | "number"
+  | "boolean"
+  | "date"
+  | "image"
+  | "select";
 
 export interface ValueItem {
   id: number;
@@ -32,7 +43,12 @@ export type AddingType =
   | "editAttribute"
   | "editObject";
 
-export const useFormState = () => {
+
+  export const useFormState = (projectId: number) => {
+  //  Hooks for database
+  const sqliteDb = useSQLiteContext();
+  const db = drizzle(sqliteDb);
+
   const [objects, setObjects] = useState<ObjectItem[]>([]);
   const [inputVisible, setInputVisible] = useState<boolean>(false);
   const [colorPickerVisible, setColorPickerVisible] = useState<boolean>(false);
@@ -47,10 +63,17 @@ export const useFormState = () => {
   );
   const [selectedValueType, setSelectedValueType] = useState<ValueType>();
   const [selectOptionsVisible, setSelectOptionsVisible] = useState(false);
-  const [currentSelectAttributeId, setCurrentSelectAttributeId] = useState<number | null>(null);
+  const [currentSelectAttributeId, setCurrentSelectAttributeId] = useState<
+    number | null
+  >(null);
   const [selectValues, setSelectValues] = useState<string>("");
-  const [currentObjectIdSelect, setCurrentObjectIdSelect] = useState<number | null>(null);
+  const [currentObjectIdSelect, setCurrentObjectIdSelect] = useState<
+    number | null
+  >(null);
 
+  useProjectSync(projectId, objects, setObjects);
+
+  // --- Add / Update / Delete logic remains unchanged ---
   const addObject = (name: string, color: string): void => {
     setObjects((prev) => ObjectService.addObject(prev, name, color));
   };
@@ -63,7 +86,12 @@ export const useFormState = () => {
     setObjects((prev) => ObjectService.deleteObject(prev, objectId));
   };
 
-  const addAttribute = (objectId: number, attributeName: string, valueType: ValueType): number => {
+
+  const addAttribute = (
+    objectId: number,
+    attributeName: string,
+    valueType: ValueType
+  ): number => {
     let newAttrId = Date.now();
     setObjects((prev) =>
       prev.map((obj) =>
@@ -86,7 +114,6 @@ export const useFormState = () => {
     return newAttrId;
   };
 
-
   const updateAttribute = (
     objectId: number,
     attributeId: number,
@@ -106,8 +133,10 @@ export const useFormState = () => {
   const findObject = (objectId: number): ObjectItem | undefined =>
     ObjectService.findObject(objects, objectId);
 
-
-  const findAttribute = (objectId: number, attributeId: number): Attribute | undefined =>
+  const findAttribute = (
+    objectId: number,
+    attributeId: number
+  ): Attribute | undefined =>
     ObjectService.findAttribute(objects, objectId, attributeId);
 
   const handleAddObject = (): void => {
@@ -158,21 +187,33 @@ export const useFormState = () => {
 
   const addSelectOption = () => {
     console.log("ADDING SELECT OPTION:", selectValues);
-    if (!currentObjectIdSelect || !currentSelectAttributeId || !selectValues.trim()) {
-      console.log("Cannot add option, missing data", currentObjectIdSelect, currentSelectAttributeId, selectValues);
-      return
+    if (
+      !currentObjectIdSelect ||
+      !currentSelectAttributeId ||
+      !selectValues.trim()
+    ) {
+      console.log(
+        "Cannot add option, missing data",
+        currentObjectIdSelect,
+        currentSelectAttributeId,
+        selectValues
+      );
+      return;
     }
 
-    setObjects(prev =>
-      prev.map(obj => {
+    setObjects((prev) =>
+      prev.map((obj) => {
         if (obj.id !== currentObjectIdSelect) return obj;
         return {
           ...obj,
-          attributes: obj.attributes.map(attr => {
+          attributes: obj.attributes.map((attr) => {
             if (attr.id !== currentSelectAttributeId) return attr;
             return {
               ...attr,
-              values: [...attr.values, { id: Date.now(), name: selectValues, valueType: "text" }],
+              values: [
+                ...attr.values,
+                { id: Date.now(), name: selectValues, valueType: "text" },
+              ],
             };
           }),
         };
@@ -181,7 +222,6 @@ export const useFormState = () => {
 
     setSelectValues(""); // clear input for next option
   };
-
 
   const handleDeleteObject = (objectId: number): void => {
     Alert.alert(
@@ -198,14 +238,28 @@ export const useFormState = () => {
     );
   };
 
-  const handleDeleteAttribute = (objectId: number, attributeId: number): void => {
-    Alert.alert("Delete Attribute", "Are you sure you want to delete this attribute?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => deleteAttribute(objectId, attributeId) },
-    ]);
+  const handleDeleteAttribute = (
+    objectId: number,
+    attributeId: number
+  ): void => {
+    Alert.alert(
+      "Delete Attribute",
+      "Are you sure you want to delete this attribute?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteAttribute(objectId, attributeId),
+        },
+      ]
+    );
   };
 
-  const handleChangeAttributeName = (objectId: number, attributeId: number): void => {
+  const handleChangeAttributeName = (
+    objectId: number,
+    attributeId: number
+  ): void => {
     const attribute = findAttribute(objectId, attributeId);
     if (attribute) {
       setInputValue(attribute.name);
@@ -252,7 +306,10 @@ export const useFormState = () => {
     }
 
     if (!finalColor.trim() || !isValidColor(finalColor)) {
-      Alert.alert("Invalid Color", "Please enter a valid hex color (e.g., FF5733 or #FF5733)");
+      Alert.alert(
+        "Invalid Color",
+        "Please enter a valid hex color (e.g., FF5733 or #FF5733)"
+      );
       return;
     }
 
@@ -266,13 +323,17 @@ export const useFormState = () => {
     if (!inputValue.trim()) return;
 
     if (addingType === "attribute") {
-      const newAttrId = addAttribute(currentObjectId!, inputValue, selectedValueType!);
+      const newAttrId = addAttribute(
+        currentObjectId!,
+        inputValue,
+        selectedValueType!
+      );
 
       if (selectedValueType === "select") {
         setCurrentSelectAttributeId(newAttrId);
         setSelectValues("");
         setSelectOptionsVisible(true);
-        setCurrentObjectIdSelect(currentObjectId)
+        setCurrentObjectIdSelect(currentObjectId);
       }
     } else if (addingType === "editAttribute") {
       updateAttribute(currentObjectId!, editingAttributeId!, inputValue);
@@ -331,7 +392,6 @@ export const useFormState = () => {
     setObjects,
     setSelectOptionsVisible,
     setSelectValues,
-
 
     handleAddObject,
     handleAddAttribute,

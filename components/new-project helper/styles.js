@@ -101,10 +101,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
   },
   fixedButtonContainer: {
-    position: 'absolute',
-    bottom: 50,
-    left: 20,
-    right: 20,
+
   },
   startSurveyButton: {
     backgroundColor: '#7a6161ff',
