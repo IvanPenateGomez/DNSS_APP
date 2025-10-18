@@ -12,7 +12,7 @@ const index = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      console.log("📂 Database path:", db.databasePath);
+      console.log("📂 Database path2:", db.databasePath);
     };
     loadData();
   }, [db]);

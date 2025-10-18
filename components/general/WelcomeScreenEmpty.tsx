@@ -10,13 +10,12 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const WelcomeScreen = () => {
+const WelcomeScreenEmpty = () => {
   const router = useRouter();
   const db = drizzle(useSQLiteContext());
   const insets = useSafeAreaInsets();
@@ -28,10 +27,7 @@ const WelcomeScreen = () => {
     try {
       const result = await db
         .insert(projects)
-        .values({
-          name: name.trim(),
-          created_at: Date.now(),
-        })
+        .values({ name: name.trim(), created_at: Date.now() })
         .returning({ id: projects.id });
 
       const projectId = result[0]?.id;
@@ -66,40 +62,29 @@ const WelcomeScreen = () => {
     }
   };
 
-  const handleImportProject = () => {
-    console.log("Import Project pressed");
-  };
-
   return (
     <Animated.View
       entering={FadeIn.duration(400).delay(300)}
-      style={[
-        styles.container,
-        { paddingTop: insets.top + 20, paddingBottom: 120 },
-      ]}
+      style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: 120 }]}
     >
       <Text style={styles.title}>Welcome to Survey App</Text>
       <Text style={styles.subtitle}>
         Get started by creating a new project or importing an existing one.
       </Text>
 
-      <View style={styles.buttonContainer}>
-        <Animated.View
-          style={{ width: "100%", alignItems: "center" }}
-          entering={FadeInDown.duration(400).delay(500)}
-        >
-          <TouchableOpacity style={styles.buttonPrimary} onPress={handleNewProject}>
-            <Text style={styles.buttonText}>New Project</Text>
-          </TouchableOpacity>
-        </Animated.View>
-        <Animated.View
-          style={{ width: "100%", alignItems: "center" }}
-          entering={FadeInDown.duration(400).delay(700)}
-        >
-          <TouchableOpacity style={styles.buttonSecondary} onPress={handleImportProject}>
-            <Text style={styles.buttonText}>Import Project</Text>
-          </TouchableOpacity>
-        </Animated.View>
+      <View style={styles.listContainer}>
+        <ProjectListItem
+          title="New Project"
+          color="#7a6161ff"
+          onPress={handleNewProject}
+          delay={500}
+        />
+        <ProjectListItem
+          title="Import Project"
+          color="#b89a9aff"
+          onPress={() => console.log("Import Project pressed")}
+          delay={700}
+        />
       </View>
 
       {/* ✅ Android custom prompt modal */}
@@ -114,26 +99,26 @@ const WelcomeScreen = () => {
               style={styles.input}
             />
             <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: "#ccc" }]}
+              <ProjectListItem
+                title="Cancel"
+                color="#ccc"
                 onPress={() => {
                   setProjectName("");
                   setShowPrompt(false);
                 }}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: "#7a6161ff" }]}
+                style={{ width: "48%" }}
+              />
+              <ProjectListItem
+                title="Create"
+                color="#7a6161ff"
                 onPress={async () => {
                   if (!projectName.trim()) return;
                   setShowPrompt(false);
                   await createProject(projectName);
                   setProjectName("");
                 }}
-              >
-                <Text style={styles.modalButtonText}>Create</Text>
-              </TouchableOpacity>
+                style={{ width: "48%" }}
+              />
             </View>
           </View>
         </View>
@@ -142,7 +127,7 @@ const WelcomeScreen = () => {
   );
 };
 
-export default WelcomeScreen;
+export default WelcomeScreenEmpty;
 
 const styles = StyleSheet.create({
   container: {
@@ -165,30 +150,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 40,
   },
-  buttonContainer: {
+  listContainer: {
     width: "100%",
     alignItems: "center",
   },
-  buttonPrimary: {
-    backgroundColor: "#7a6161ff",
-    paddingVertical: 15,
-    borderRadius: 10,
-    width: "80%",
-    marginBottom: 15,
-  },
-  buttonSecondary: {
-    backgroundColor: "#b89a9aff",
-    paddingVertical: 15,
-    borderRadius: 10,
-    width: "80%",
-  },
-  buttonText: {
-    color: "#fff",
-    textAlign: "center",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
@@ -218,16 +183,5 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginHorizontal: 5,
-    alignItems: "center",
-  },
-  modalButtonText: {
-    color: "#fff",
-    fontWeight: "600",
   },
 });

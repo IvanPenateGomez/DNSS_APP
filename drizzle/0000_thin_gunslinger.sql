@@ -1,15 +1,15 @@
 CREATE TABLE `attribute_values` (
-	`id` text PRIMARY KEY NOT NULL,
-	`observation_id` text NOT NULL,
-	`attribute_id` text NOT NULL,
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`observation_id` integer NOT NULL,
+	`attribute_id` integer NOT NULL,
 	`value_text` text,
 	FOREIGN KEY (`observation_id`) REFERENCES `observations`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`attribute_id`) REFERENCES `attributes`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE TABLE `attributes` (
-	`id` text PRIMARY KEY NOT NULL,
-	`object_type_id` text NOT NULL,
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`object_type_id` integer NOT NULL,
 	`label` text NOT NULL,
 	`key` text NOT NULL,
 	`type` text DEFAULT 'text' NOT NULL,
@@ -19,8 +19,8 @@ CREATE TABLE `attributes` (
 );
 --> statement-breakpoint
 CREATE TABLE `object_types` (
-	`id` text PRIMARY KEY NOT NULL,
-	`project_id` text NOT NULL,
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`project_id` integer NOT NULL,
 	`name` text NOT NULL,
 	`color` text,
 	`order_index` integer DEFAULT 0 NOT NULL,
@@ -28,9 +28,9 @@ CREATE TABLE `object_types` (
 );
 --> statement-breakpoint
 CREATE TABLE `observations` (
-	`id` text PRIMARY KEY NOT NULL,
-	`session_id` text NOT NULL,
-	`object_type_id` text NOT NULL,
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`session_id` integer NOT NULL,
+	`object_type_id` integer NOT NULL,
 	`latitude` real NOT NULL,
 	`longitude` real NOT NULL,
 	`captured_at` integer NOT NULL,
@@ -41,14 +41,14 @@ CREATE TABLE `observations` (
 );
 --> statement-breakpoint
 CREATE TABLE `projects` (
-	`id` text PRIMARY KEY NOT NULL,
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `survey_sessions` (
-	`id` text PRIMARY KEY NOT NULL,
-	`project_id` text NOT NULL,
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`project_id` integer NOT NULL,
 	`started_at` integer NOT NULL,
 	`ended_at` integer,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
