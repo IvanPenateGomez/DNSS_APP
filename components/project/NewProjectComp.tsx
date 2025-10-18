@@ -1,11 +1,3 @@
-import React from "react";
-import {
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-  Alert,
-} from "react-native";
 import {
   getValidColor,
   isValidColor,
@@ -16,9 +8,11 @@ import {
   ColorPickerModal,
   HexInputModal,
   NameInputModal,
-  SelectOptionsModal
+  SelectOptionsModal,
 } from "@/components/new-project helper/popups";
 import { styles } from "@/components/new-project helper/styles";
+import React from "react";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Type = "text" | "number" | "boolean" | "date" | "image" | "select";
@@ -86,15 +80,13 @@ export default function NewProjectComp() {
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        { paddingTop: insets.top + 20, paddingBottom: 300 },
-      ]}
-    >
+    <View style={[styles.container]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{
+          paddingTop: insets.top + 20,
+          paddingBottom: 300,
+        }}
       >
         <Text style={styles.header}>Form Creation</Text>
 
@@ -121,46 +113,75 @@ export default function NewProjectComp() {
               </View>
 
               {/* Show attributes */}
-              {obj.attributes.map((attr: Attribute) => (
-                console.log("NEW ATTRIBUTE VALUES:", attr),
-                <View key={attr.id} style={[styles.attributeRow, { flexDirection: "column" }]}>
-                  <View style={{ flexDirection: "row", alignItems: "center", width: "100%" }}>
-                    <TouchableOpacity
-                      style={[styles.attributeBox, { backgroundColor: lighterColor, flex: 1 }]}
-                      onPress={() => handleChangeAttributeName(obj.id, attr.id)}
+              {obj.attributes.map(
+                (attr: Attribute) => (
+                  console.log("NEW ATTRIBUTE VALUES:", attr),
+                  (
+                    <View
+                      key={attr.id}
+                      style={[styles.attributeRow, { flexDirection: "column" }]}
                     >
-                      <Text style={styles.attributeText}>
-                        {attr.name}{" "}
-                        <Text style={{ fontStyle: "italic", color: "#555" }}>
-                          ({attr.valueType})
-                        </Text>
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.deleteAttributeButton}
-                      onPress={() => handleDeleteAttribute(obj.id, attr.id)}
-                    >
-                      <Text style={styles.deleteAttributeText}>×</Text>
-                    </TouchableOpacity>
-                  </View>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          width: "100%",
+                        }}
+                      >
+                        <TouchableOpacity
+                          style={[
+                            styles.attributeBox,
+                            { backgroundColor: lighterColor, flex: 1 },
+                          ]}
+                          onPress={() =>
+                            handleChangeAttributeName(obj.id, attr.id)
+                          }
+                        >
+                          <Text style={styles.attributeText}>
+                            {attr.name}{" "}
+                            <Text
+                              style={{ fontStyle: "italic", color: "#555" }}
+                            >
+                              ({attr.valueType})
+                            </Text>
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.deleteAttributeButton}
+                          onPress={() => handleDeleteAttribute(obj.id, attr.id)}
+                        >
+                          <Text style={styles.deleteAttributeText}>×</Text>
+                        </TouchableOpacity>
+                      </View>
 
-                  {/* List values below the attribute */}
-                  {attr.values.length > 0 && (
-                    console.log("VALUES TO SHOW:", attr.values),
-                    <View style={{ marginTop: 5, marginLeft: 10 }}>
-                      <Text style={{ fontSize: 12, color: "#666", fontWeight: "600" }}>
-                        Values:
-                      </Text>
-                      {attr.values.map((val) => (
-                        <Text key={val.id} style={{ fontSize: 12, color: "#444" }}>
-                          • {val.name} ({val.valueType})
-                        </Text>
-                      ))}
+                      {/* List values below the attribute */}
+                      {attr.values.length > 0 &&
+                        (console.log("VALUES TO SHOW:", attr.values),
+                        (
+                          <View style={{ marginTop: 5, marginLeft: 10 }}>
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                color: "#666",
+                                fontWeight: "600",
+                              }}
+                            >
+                              Values:
+                            </Text>
+                            {attr.values.map((val) => (
+                              <Text
+                                key={val.id}
+                                style={{ fontSize: 12, color: "#444" }}
+                              >
+                                • {val.name} ({val.valueType})
+                              </Text>
+                            ))}
+                          </View>
+                        ))}
                     </View>
-                  )}
-                </View>
-              ))}
-
+                  )
+                )
+              )}
 
               <TouchableOpacity
                 style={[
@@ -225,18 +246,17 @@ export default function NewProjectComp() {
           setOption={setSelectValues}
           handleAdd={addSelectOption}
         />
-
-
-      </ScrollView>
-
-      <View style={[styles.fixedButtonContainer, { bottom: insets.bottom + 120 }]}>
-        <TouchableOpacity
-          style={styles.startSurveyButton}
-          onPress={handleStartSurvey}
+        <View
+          style={[styles.fixedButtonContainer, { bottom: insets.bottom + 120 }]}
         >
-          <Text style={styles.startSurveyText}>Start Survey</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.startSurveyButton}
+            onPress={handleStartSurvey}
+          >
+            <Text style={styles.startSurveyText}>Start Survey</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 }

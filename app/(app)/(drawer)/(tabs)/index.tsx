@@ -12,7 +12,7 @@ const index = () => {
     <View
       style={[
         styles.container,
-        { paddingTop: insets.top + 15, paddingBottom: 120 },
+        { paddingTop: insets.top + 15, },
       ]}
     >
       <Animated.View entering={SlideInLeft.duration(400).delay(150)} style={{position: 'absolute', top: insets.top + 25, zIndex: 10, left: 10}}>

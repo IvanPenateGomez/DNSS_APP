@@ -2,7 +2,6 @@ import { StyleSheet } from 'react-native';
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f2f0',
   },
   scrollView: {
     flex: 1,
@@ -103,7 +102,7 @@ export const styles = StyleSheet.create({
   },
   fixedButtonContainer: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 50,
     left: 20,
     right: 20,
   },
