@@ -15,16 +15,19 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDrawer } from "@/context/DrawerContext";
 import EnterDataButton from "@/components/general/EnterDataButton";
-import { useProjectObjects } from "@/hooks/useProjectObjects"; // ✅ import your live query hook
+import { useProjectObjects } from "@/hooks/useProjectObjects";
+import { useProjectStore } from "@/zustand/projectId";
 
-export default function Map({ projectId = 1 }: { projectId?: number }) {
+export default function Map() {
   const [region, setRegion] = useState<Region | null>(null);
-  const [showPopup, setShowPopup] = useState(false);
-  const [showObjectSelect, setShowObjectSelect] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalStep, setModalStep] = useState<"method" | "object">("method");
   const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null);
   const insets = useSafeAreaInsets();
   const { openDrawer } = useDrawer();
 
+  // ✅ get projectId from Zustand store
+  const projectId = useProjectStore((state) => state.projectId);
   const { data: objects, loading } = useProjectObjects(projectId);
 
   useEffect(() => {
@@ -69,23 +72,25 @@ export default function Map({ projectId = 1 }: { projectId?: number }) {
     }
   };
 
-  const handleEnterData = () => setShowPopup(true);
+  const handleEnterData = () => {
+    setModalStep("method");
+    setShowModal(true);
+  };
 
   const handleChooseCurrent = async () => {
-    setShowPopup(false);
     try {
       const location = await Location.getCurrentPositionAsync({});
       console.log("📍 Using current location:", location.coords);
-      // Open object selection modal
-      setShowObjectSelect(true);
+      // 🔄 Switch to object selection (no close/reopen)
+      setModalStep("object");
     } catch (err) {
       Alert.alert("Error", "Could not get your current location");
     }
   };
 
   const handleEnterManually = () => {
-    setShowPopup(false);
     console.log("✏️ Enter coordinates manually");
+    setModalStep("object"); // optional same flow
   };
 
   const handleContinue = () => {
@@ -94,8 +99,8 @@ export default function Map({ projectId = 1 }: { projectId?: number }) {
       return;
     }
     console.log("✅ Continue with object:", selectedObjectId);
-    setShowObjectSelect(false);
-    // Proceed to next screen or data entry form
+    setShowModal(false);
+    // Proceed to data entry form
   };
 
   if (!region) {
@@ -133,95 +138,89 @@ export default function Map({ projectId = 1 }: { projectId?: number }) {
         <EnterDataButton onPress={handleEnterData} />
       </View>
 
-      {/* 🪟 Data entry choice popup */}
-      <Modal transparent visible={showPopup} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowPopup(false)}
-            >
-              <Ionicons name="close" size={22} color="#7a6161ff" />
-            </TouchableOpacity>
-
-            <Text style={styles.modalTitle}>Select data entry method</Text>
-
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={handleChooseCurrent}
-            >
-              <MaterialIcons
-                name="my-location"
-                size={20}
-                color="#fff"
-                style={{ marginRight: 8 }}
-              />
-              <Text style={styles.modalOptionText}>Use current location</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.modalOption, { backgroundColor: "#b89a9a" }]}
-              onPress={handleEnterManually}
-            >
-              <MaterialIcons
-                name="edit-location"
-                size={20}
-                color="#fff"
-                style={{ marginRight: 8 }}
-              />
-              <Text style={styles.modalOptionText}>Enter coordinates</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 🧭 Object Selection Modal */}
-      <Modal transparent visible={showObjectSelect} animationType="fade">
+      {/* 🪟 Unified Modal */}
+      <Modal transparent visible={showModal} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, { paddingBottom: 30 }]}>
+            {/* Close icon */}
             <TouchableOpacity
               style={styles.closeButton}
-              onPress={() => setShowObjectSelect(false)}
+              onPress={() => setShowModal(false)}
             >
               <Ionicons name="close" size={22} color="#7a6161ff" />
             </TouchableOpacity>
 
-            <Text style={styles.modalTitle}>Select an Object</Text>
+            {modalStep === "method" ? (
+              <>
+                <Text style={styles.modalTitle}>Select data entry method</Text>
 
-            {loading ? (
-              <ActivityIndicator size="small" color="#7a6161ff" />
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={handleChooseCurrent}
+                >
+                  <MaterialIcons
+                    name="my-location"
+                    size={20}
+                    color="#fff"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.modalOptionText}>Use current location</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalOption, { backgroundColor: "#b89a9a" }]}
+                  onPress={handleEnterManually}
+                >
+                  <MaterialIcons
+                    name="edit-location"
+                    size={20}
+                    color="#fff"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.modalOptionText}>Enter coordinates</Text>
+                </TouchableOpacity>
+              </>
             ) : (
-              <ScrollView style={{ width: "100%", maxHeight: 250 }}>
-                {objects.map((obj) => (
-                  <TouchableOpacity
-                    key={obj.id}
-                    style={[
-                      styles.objectCard,
-                      selectedObjectId === obj.id && styles.objectCardSelected,
-                    ]}
-                    onPress={() => setSelectedObjectId(obj.id)}
-                  >
-                    <View
-                      style={[
-                        styles.colorCircle,
-                        { backgroundColor: obj.color },
-                      ]}
-                    />
-                    <Text style={styles.objectText}>{obj.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
+              <>
+                <Text style={styles.modalTitle}>Select an Object</Text>
 
-            <TouchableOpacity
-              style={[
-                styles.modalOption,
-                { marginTop: 20, backgroundColor: "#7a6161ff" },
-              ]}
-              onPress={handleContinue}
-            >
-              <Text style={styles.modalOptionText}>Continue</Text>
-            </TouchableOpacity>
+                {loading ? (
+                  <ActivityIndicator size="small" color="#7a6161ff" />
+                ) : (
+                  <ScrollView style={{ width: "100%", maxHeight: 250 }}>
+                    {objects.map((obj) => (
+                      <TouchableOpacity
+                        key={obj.id}
+                        style={[
+                          styles.objectCard,
+                          selectedObjectId === obj.id &&
+                            styles.objectCardSelected,
+                        ]}
+                        onPress={() => setSelectedObjectId(obj.id)}
+                      >
+                        <View
+                          style={[
+                            styles.colorCircle,
+                            { backgroundColor: obj.color },
+                          ]}
+                        />
+                        <Text style={styles.objectText}>{obj.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+
+                <TouchableOpacity
+                  style={[
+                    styles.modalOption,
+                    { marginTop: 20, backgroundColor: "#7a6161ff" },
+                  ]}
+                  onPress={handleContinue}
+                >
+                  <Text style={styles.modalOptionText}>Continue</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>
