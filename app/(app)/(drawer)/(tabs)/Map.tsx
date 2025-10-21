@@ -24,7 +24,12 @@ import MapView, { Marker, Region } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function Map() {
-  const [region, setRegion] = useState<Region | null>(null);
+  const [region, setRegion] = useState<Region | null>({
+    latitude: 52.2215,
+    longitude: 6.8937,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  });
   const [showModal, setShowModal] = useState(false);
   const [selectedObs, setSelectedObs] = useState<any | null>(null);
   const insets = useSafeAreaInsets();
@@ -44,22 +49,10 @@ export default function Map() {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission denied", "Showing default location: Enschede");
-        setRegion({
-          latitude: 52.2215,
-          longitude: 6.8937,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
+     
         return;
       }
-      const location = await Location.getCurrentPositionAsync({});
-      setRegion({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      });
+    
     })();
   }, []);
 

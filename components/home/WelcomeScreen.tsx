@@ -1,4 +1,5 @@
 import {
+  attributeCoordinateValues,
   attributes,
   attributeValues,
   objectTypes,
@@ -54,22 +55,29 @@ const WelcomeScreen = () => {
     name: string;
   } | null>(null);
 
-  const handleExport = async (
+   const handleExport = async (
     projectId: number,
     name: string,
     type: "whole" | "locations"
   ) => {
     try {
       console.log(`📤 Exporting project (${type}) as CSV:`, projectId);
-
+  
       let csv = "";
-
+  
+      // 🧩 Helper to convert any table data to CSV
+      const toCSV = (data: any[], title: string) => {
+        if (!data?.length) return `${title}\n(no data)\n\n`;
+        const headers = Object.keys(data[0]);
+        const rows = data.map((r) =>
+          headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")
+        );
+        return `${title}\n${headers.join(",")}\n${rows.join("\n")}\n\n`;
+      };
+  
       if (type === "whole") {
-        // 🧩 Full project export
-        const proj = await db
-          .select()
-          .from(projects)
-          .where(eq(projects.id, projectId));
+        // 🗂 Full project export
+        const proj = await db.select().from(projects).where(eq(projects.id, projectId));
         const objs = await db
           .select()
           .from(objectTypes)
@@ -81,61 +89,116 @@ const WelcomeScreen = () => {
           .where(eq(surveySessions.project_id, projectId));
         const obs = await db.select().from(observations);
         const vals = await db.select().from(attributeValues);
-
-        const toCSV = (data: any[], title: string) => {
-          if (!data.length) return `${title}\n(no data)\n\n`;
-          const headers = Object.keys(data[0]);
-          const rows = data.map((r) =>
-            headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")
-          );
-          return `${title}\n${headers.join(",")}\n${rows.join("\n")}\n\n`;
-        };
-
+        const coordVals = await db.select().from(attributeCoordinateValues);
+  
         csv =
           toCSV(proj, "PROJECTS") +
           toCSV(objs, "OBJECT_TYPES") +
           toCSV(attrs, "ATTRIBUTES") +
           toCSV(sessions, "SURVEY_SESSIONS") +
           toCSV(obs, "OBSERVATIONS") +
-          toCSV(vals, "ATTRIBUTE_VALUES");
-      } else {
-        // 📍 Only export observations
-        const obs = await db
-          .select()
-          .from(observations)
-          .where(eq(observations.session_id, projectId)); // or filter differently if needed
-
-        if (!obs.length) {
-          Alert.alert("No data", "No observations found.");
-          return;
+          toCSV(vals, "ATTRIBUTE_VALUES") +
+          toCSV(coordVals, "ATTRIBUTE_COORDINATE_VALUES");
+        } else {
+          // 📍 Export location-based observations with flattened attributes
+          const obs = await db
+            .select({
+              observation_id: observations.id,
+              latitude: observations.latitude,
+              longitude: observations.longitude,
+              captured_at: observations.captured_at,
+              notes: observations.notes,
+              status: observations.status,
+              object_type_id: observations.object_type_id,
+              session_id: observations.session_id,
+            })
+            .from(observations)
+            .innerJoin(surveySessions, eq(surveySessions.id, observations.session_id))
+            .where(eq(surveySessions.project_id, projectId));
+        
+          if (!obs?.length) {
+            Alert.alert("No data", "No observations found for export.");
+            return;
+          }
+        
+          // Load supporting data for joins
+          const [objs, attrs, vals] = await Promise.all([
+            db.select().from(objectTypes).where(eq(objectTypes.project_id, projectId)),
+            db.select().from(attributes),
+            db.select().from(attributeValues),
+          ]);
+        
+          // Build lookup maps for faster join-like access
+          const objectMap = Object.fromEntries(objs.map((o) => [o.id, o.name]));
+          const attrMap = Object.fromEntries(attrs.map((a) => [a.id, a.label]));
+        
+          // Flatten rows
+          const flattened: any[] = [];
+        
+          for (const o of obs) {
+            const relatedVals = vals.filter((v) =>
+              attrs.some(
+                (a) => a.id === v.attribute_id && a.object_type_id === o.object_type_id
+              )
+            );
+        
+            if (relatedVals.length === 0) {
+              // still include observation row with no attributes
+              flattened.push({
+                observation_id: o.observation_id,
+                object_type: objectMap[o.object_type_id] ?? "",
+                latitude: o.latitude,
+                longitude: o.longitude,
+                attribute_label: "",
+                attribute_value: "",
+                captured_at: o.captured_at,
+               
+              });
+            } else {
+              for (const v of relatedVals) {
+                flattened.push({
+                  observation_id: o.observation_id,
+                  object_type: objectMap[o.object_type_id] ?? "",
+                  latitude: o.latitude,
+                  longitude: o.longitude,
+                  attribute_label: attrMap[v.attribute_id] ?? "",
+                  attribute_value: v.value_text ?? "",
+                  captured_at: o.captured_at,
+              
+                });
+              }
+            }
+          }
+        
+          // Convert to CSV
+          const headers = Object.keys(flattened[0]);
+          const rows = flattened.map((r) =>
+            headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")
+          );
+          csv = `FLATTENED_OBSERVATIONS\n${headers.join(",")}\n${rows.join("\n")}\n\n`;
         }
-
-        const headers = Object.keys(obs[0]);
-        const rows = obs.map((r) =>
-          headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")
-        );
-        csv = `OBSERVATIONS\n${headers.join(",")}\n${rows.join("\n")}\n\n`;
-      }
-
-      const filePath = `${(FileSystem as any).cacheDirectory}${name.replace(
-        /\s+/g,
-        "_"
-      )}_${type}_export.csv`;
+        
+      // 💾 Write CSV file
+      const filePath = `${FileSystem.cacheDirectory}${name
+        .replace(/\s+/g, "_")
+        .toLowerCase()}_${type}_export.csv`;
+  
       await FileSystem.writeAsStringAsync(filePath, csv, { encoding: "utf8" });
-
+  
+      // 📤 Share the file
       if (!(await Sharing.isAvailableAsync())) {
         Alert.alert("Sharing not available on this device.");
         return;
       }
-
+  
       await Sharing.shareAsync(filePath, {
         mimeType: "text/csv",
         dialogTitle: `Export ${
-          type === "whole" ? "Project" : "Locations"
+          type === "whole" ? "Full Project" : "Locations"
         } Data`,
         UTI: "public.comma-separated-values-text",
       });
-
+  
       console.log("✅ CSV shared successfully:", filePath);
     } catch (err) {
       console.error("❌ Export failed:", err);
@@ -207,29 +270,29 @@ const WelcomeScreen = () => {
     }
   };
 
-  const handleImportProject = async () => {
+   const handleImportProject = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({});
-
+  
       if (result.canceled || !result.assets?.[0]?.uri) return;
-
+  
       const fileUri = result.assets[0].uri;
       console.log("📂 Importing project from:", fileUri);
-
+  
       // ✅ Read file
       const fileData = await FileSystem.readAsStringAsync(fileUri, {
         encoding: "utf8",
       });
-
-      // ✅ Parse CSV sections (split by blank lines)
+  
+      // ✅ Parse CSV sections
       const sections = fileData.split(/\n\s*\n/);
       const parsed: Record<string, any[]> = {};
-
+  
       for (const section of sections) {
         const lines = section.trim().split("\n");
         const title = lines.shift()?.trim();
         if (!title || lines.length < 2) continue;
-
+  
         const headers = lines[0].split(",").map((h) => h.trim());
         const rows = lines.slice(1).map((line) => {
           const values = line.split(",");
@@ -239,10 +302,10 @@ const WelcomeScreen = () => {
         });
         parsed[title] = rows;
       }
-
+  
       console.log("📊 Parsed CSV sections:", Object.keys(parsed));
-
-      // ✅ Create new project (copy name)
+  
+      // ✅ Create new project
       const importedName =
         parsed.PROJECTS?.[0]?.name || `Imported_${Date.now()}`;
       const insertedProject = await db
@@ -252,13 +315,12 @@ const WelcomeScreen = () => {
           created_at: Date.now(),
         })
         .returning({ id: projects.id });
-
       const projectId = insertedProject[0]?.id;
       if (!projectId) throw new Error("Failed to insert project");
       console.log("🆕 Created imported project:", importedName);
-
-      // ✅ Insert object types
-      const objMap = new Map<number, number>(); // oldId -> newId
+  
+      // ✅ OBJECT TYPES
+      const objMap = new Map<number, number>();
       if (parsed.OBJECT_TYPES) {
         for (const [i, o] of parsed.OBJECT_TYPES.entries()) {
           const res = await db
@@ -273,8 +335,8 @@ const WelcomeScreen = () => {
           objMap.set(Number(o.id), res[0].id);
         }
       }
-
-      // ✅ Insert attributes
+  
+      // ✅ ATTRIBUTES
       const attrMap = new Map<number, number>();
       if (parsed.ATTRIBUTES) {
         for (const [i, a] of parsed.ATTRIBUTES.entries()) {
@@ -294,8 +356,8 @@ const WelcomeScreen = () => {
           attrMap.set(Number(a.id), res[0].id);
         }
       }
-
-      // ✅ Insert select values
+  
+      // ✅ ATTRIBUTE VALUES (select options)
       if (parsed.ATTRIBUTE_VALUES) {
         for (const v of parsed.ATTRIBUTE_VALUES) {
           const attrId = attrMap.get(Number(v.attribute_id));
@@ -306,7 +368,62 @@ const WelcomeScreen = () => {
           });
         }
       }
-
+  
+      // ✅ SURVEY SESSIONS
+      const sessionMap = new Map<number, number>();
+      if (parsed.SURVEY_SESSIONS) {
+        for (const s of parsed.SURVEY_SESSIONS) {
+          const res = await db
+            .insert(surveySessions)
+            .values({
+              project_id: projectId,
+              started_at: Number(s.started_at) || Date.now(),
+              ended_at: s.ended_at ? Number(s.ended_at) : null,
+            })
+            .returning({ id: surveySessions.id });
+          sessionMap.set(Number(s.id), res[0].id);
+        }
+      }
+  
+      // ✅ OBSERVATIONS
+      const obsMap = new Map<number, number>();
+      if (parsed.OBSERVATIONS) {
+        for (const o of parsed.OBSERVATIONS) {
+          const sessionId = sessionMap.get(Number(o.session_id));
+          const objectId = objMap.get(Number(o.object_type_id));
+          if (!sessionId || !objectId) continue;
+  
+          const res = await db
+            .insert(observations)
+            .values({
+              session_id: sessionId,
+              object_type_id: objectId,
+              latitude: Number(o.latitude),
+              longitude: Number(o.longitude),
+              captured_at: Number(o.captured_at),
+              notes: o.notes || null,
+              status: o.status || "draft",
+              mapVisible: o.mapVisible === "1" || o.mapVisible === "true",
+            })
+            .returning({ id: observations.id });
+          obsMap.set(Number(o.id), res[0].id);
+        }
+      }
+  
+      // ✅ ATTRIBUTE COORDINATE VALUES
+      if (parsed.ATTRIBUTE_COORDINATE_VALUES) {
+        for (const v of parsed.ATTRIBUTE_COORDINATE_VALUES) {
+          const obsId = obsMap.get(Number(v.observation_id));
+          const attrId = attrMap.get(Number(v.attribute_id));
+          if (!obsId || !attrId) continue;
+          await db.insert(attributeCoordinateValues).values({
+            observation_id: obsId,
+            attribute_id: attrId,
+            value_text: v.value_text,
+          });
+        }
+      }
+  
       refreshDb();
       Alert.alert("✅ Import Successful", `Project “${importedName}” added.`);
       console.log("🎉 Project imported successfully!");
