@@ -123,41 +123,49 @@ export default function MenuStack() {
         );
       }
 
-      // ───── ITEM ─────
-      const color = item.parentColor || GLOBAL_APP_COLOR;
-      const hasAnswers = item.attributes && item.attributes.length > 0;
-      const isVisible = item.mapVisible;
+// ───── ITEM ─────
+const color = item.parentColor || GLOBAL_APP_COLOR;
+const hasAnswers = item.attributes && item.attributes.length > 0;
+const isVisible = item.mapVisible;
 
-      return (
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={[
-            styles.itemContainer,
-            { borderLeftColor: color, borderLeftWidth: 4 },
-          ]}
-          onPress={() => toggleObservationVisible(item.id, isVisible)}
-        >
-          <Ionicons
-            name={isVisible ? "checkbox" : "square-outline"}
-            size={20}
-            color={color}
-            style={{ marginRight: 10 }}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.itemText}>Observation #{item.id}</Text>
-            <Text style={styles.subText}>
-              {hasAnswers
-                ? `${item.attributes.length} ${
-                    item.attributes.length === 1 ? "value" : "values"
-                  } recorded`
-                : "No data yet"}
-            </Text>
-          </View>
-          {hasAnswers && (
-            <Ionicons name="checkmark-circle" size={20} color={color} />
-          )}
-        </TouchableOpacity>
-      );
+// Build short summary string
+const valueSummary = hasAnswers
+  ? item.attributes
+      .map((a: any) => `${a.name}: ${a.value}`)
+      .join(", ")
+  : "No data yet";
+
+return (
+  <TouchableOpacity
+    activeOpacity={0.8}
+    style={[
+      styles.itemContainer,
+      { borderLeftColor: color, borderLeftWidth: 4 },
+    ]}
+    onPress={() => toggleObservationVisible(item.id, isVisible)}
+  >
+    <Ionicons
+      name={isVisible ? "checkbox" : "square-outline"}
+      size={20}
+      color={color}
+      style={{ marginRight: 10 }}
+    />
+
+    <View style={{ flex: 1 }}>
+      <Text style={styles.itemText}>Observation #{item.id}</Text>
+      <Text
+        style={styles.subText}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+      >
+        {valueSummary}
+      </Text>
+    </View>
+
+    
+  </TouchableOpacity>
+);
+
     };
 
     // Empty state

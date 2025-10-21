@@ -405,59 +405,62 @@ const WelcomeScreen = () => {
             No projects yet. Create one above!
           </Text>
         }
-        ListFooterComponent={<>
-        <View style={styles.resetContainer}>
-        <TouchableOpacity
-          style={styles.resetButton}
-          onPress={() => {
-            Alert.alert(
-              "Reset App Data",
-              "This will delete all local data (database + settings) and restart the app. Continue?",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Reset",
-                  style: "destructive",
-                  onPress: async () => {
-                    try {
-                      console.log("🧹 Starting full reset...");
-            
-                      if (dbPath) {
-                        console.log("🗑 Deleting DB at:", dbPath);
-                        await FileSystem.deleteAsync(dbPath, {
-                          idempotent: true,
-                        });
-                      } else {
-                        console.warn("⚠️ No databasePath found in context");
-                      }
-
-                      // ✅ 2. Clear AsyncStorage
-                      await AsyncStorage.clear();
-                      console.log("🧽 Cleared AsyncStorage");
-
-                      // ✅ 3. Refresh Zustand store & reload app
-                      refreshDb();
-                      
-                      useInitializeStore.getState().increment();
-                      Alert.alert(
-                        "✅ Reset Complete",
-                        "All local data cleared. Restart the app to initialize."
-                      );
-                 
-                    } catch (err) {
-                      console.error("❌ Reset failed:", err);
-                      Alert.alert("Error", "Failed to reset app data.");
-                    }
-                  },
-                },
-              ]
-            );
-          }}
-        >
-          <Text style={styles.resetButtonText}>Reset App Data</Text>
-        </TouchableOpacity>
-      </View>
-        </>}
+        ListFooterComponent={
+          Platform.OS === "ios" ? (
+            <>
+              <View style={styles.resetContainer}>
+                <TouchableOpacity
+                  style={styles.resetButton}
+                  onPress={() => {
+                    Alert.alert(
+                      "Reset App Data",
+                      "This will delete all local data (database + settings) and restart the app. Continue?",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Reset",
+                          style: "destructive",
+                          onPress: async () => {
+                            try {
+                              console.log("🧹 Starting full reset...");
+        
+                              if (dbPath) {
+                                console.log("🗑 Deleting DB at:", dbPath);
+                                await FileSystem.deleteAsync(dbPath, {
+                                  idempotent: true,
+                                });
+                              } else {
+                                console.warn("⚠️ No databasePath found in context");
+                              }
+        
+                              // ✅ 2. Clear AsyncStorage
+                              await AsyncStorage.clear();
+                              console.log("🧽 Cleared AsyncStorage");
+        
+                              // ✅ 3. Refresh Zustand store & reload app
+                              refreshDb();
+                              useInitializeStore.getState().increment();
+        
+                              Alert.alert(
+                                "✅ Reset Complete",
+                                "All local data cleared. Restart the app to initialize."
+                              );
+                            } catch (err) {
+                              console.error("❌ Reset failed:", err);
+                              Alert.alert("Error", "Failed to reset app data.");
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                >
+                  <Text style={styles.resetButtonText}>Reset App Data</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : null
+        }
       />
 
       {/* 🔄 Reset App Data Button */}
