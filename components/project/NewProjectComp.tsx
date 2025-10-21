@@ -161,30 +161,40 @@ export default function NewProjectComp({ projectId, projectName }: Props) {
                       </View>
 
                       {/* List values below the attribute */}
-                      {attr.values.length > 0 &&
-                        (
-                        (
-                          <View style={{ marginTop: 5, marginLeft: 10 }}>
-                            <Text
-                              style={{
-                                fontSize: 12,
-                                color: "#666",
-                                fontWeight: "600",
-                              }}
-                            >
-                              Values:
-                            </Text>
-                            {attr.values.map((val) => (
-                              <Text
-                                key={val.id}
-                                style={{ fontSize: 12, color: "#444" }}
-                              >
-                                • {val.name} ({val.valueType})
-                              </Text>
-                            ))}
-                          </View>
-                        ))}
-                    </View>
+            {/* List values below the attribute */}
+            {attr.values.length > 0 && (
+  <View style={[styles.valueSection, { backgroundColor: lighterColor }]}>
+    <Text style={styles.valueHeader}>Values:</Text>
+
+    {attr.values.map((val) => (
+      <View key={val.id} style={styles.valueRow}>
+        <Text style={styles.valueBullet}>•</Text>
+        <Text style={styles.valueText}>
+          {val.name}{" "}
+          <Text
+            style={[
+              styles.valueType,
+              val.valueType === "number"
+                ? styles.valueTypeNumber
+                : val.valueType === "boolean"
+                ? styles.valueTypeBool
+                : val.valueType === "date"
+                ? styles.valueTypeDate
+                : val.valueType === "image"
+                ? styles.valueTypeImage
+                : val.valueType === "select"
+                ? styles.valueTypeSelect
+                : styles.valueTypeText,
+            ]}
+          >
+            ({val.valueType})
+          </Text>
+        </Text>
+      </View>
+    ))}
+  </View>
+)}
+        </View>
                   )
                 )
               )}
