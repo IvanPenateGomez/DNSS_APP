@@ -1,5 +1,9 @@
 import { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
-import { surveySessions, observations } from "@/db/schema";
+import {
+  surveySessions,
+  observations,
+  attributeCoordinateValues,
+} from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function saveObservation(
@@ -44,7 +48,7 @@ export async function saveObservation(
 
     if (!sessionId) throw new Error("Failed to get or create session");
 
-    // 2️⃣ Insert a new observation only
+    // 2️⃣ Insert the new observation
     const insertedObs = await tx
       .insert(observations)
       .values({
@@ -61,6 +65,37 @@ export async function saveObservation(
     const observationId = insertedObs?.[0]?.id;
     if (!observationId) throw new Error("Failed to create observation");
 
-    console.log("✅ Observation saved:", observationId);
+    // 3️⃣ Save attribute answers into attribute_coordinate_values
+    if (selectedValues && Object.keys(selectedValues).length > 0) {
+      for (const [attrId, value] of Object.entries(selectedValues)) {
+        if (!value) continue;
+
+        if (Array.isArray(value)) {
+          // MULTI-SELECT attribute (e.g. "Red", "Green")
+          for (const v of value) {
+            await tx
+              .insert(attributeCoordinateValues)
+              .values({
+                observation_id: observationId,
+                attribute_id: Number(attrId),
+                value_text: String(v),
+              })
+              .execute();
+          }
+        } else {
+          // BOOLEAN / SINGLE VALUE
+          await tx
+            .insert(attributeCoordinateValues)
+            .values({
+              observation_id: observationId,
+              attribute_id: Number(attrId),
+              value_text: String(value),
+            })
+            .execute();
+        }
+      }
+    }
+
+    console.log("✅ Observation + coordinate attribute values saved:", observationId);
   });
 }

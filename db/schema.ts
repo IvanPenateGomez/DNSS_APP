@@ -72,10 +72,21 @@ export const observations = sqliteTable("observations", {
  * ─────────────────────────────── */
 export const attributeValues = sqliteTable("attribute_values", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  observation_id: integer("observation_id")
-    .references(() => observations.id, { onDelete: "cascade" }),
+
   attribute_id: integer("attribute_id")
     .notNull()
     .references(() => attributes.id, { onDelete: "cascade" }),
   value_text: text("value_text"), // stores user input as text
+});
+
+
+export const attributeCoordinateValues = sqliteTable("attribute_coordinate_values", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  observation_id: integer("observation_id")
+    .notNull()
+    .references(() => observations.id, { onDelete: "cascade" }),
+  attribute_id: integer("attribute_id")
+    .notNull()
+    .references(() => attributes.id, { onDelete: "cascade" }),
+  value_text: text("value_text").notNull(), // e.g. "Red", "True", "High"
 });
