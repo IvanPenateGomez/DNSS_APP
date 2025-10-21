@@ -127,23 +127,21 @@ export default function Map() {
         {/* 🟢 Render markers */}
         {!isLoading &&
           observationsData.map((obs) => (
-<Marker
-  key={obs.id}
-  coordinate={{
-    latitude: obs.latitude,
-    longitude: obs.longitude,
-  }}
-  anchor={{ x: 0.5, y: 0.5 }} // 👈 Center the marker properly
-  tracksViewChanges={false}   // 👈 Performance & stability fix
-  onPress={() => setSelectedObs(obs)}
->
-  <View
-    style={[
-      styles.markerCircle,
-      { backgroundColor: obs.color || "#7a6161ff" },
-    ]}
-  />
-</Marker>
+            <Marker
+              key={obs.id}
+              coordinate={{
+                latitude: obs.latitude,
+                longitude: obs.longitude,
+              }}
+              onPress={() => setSelectedObs(obs)}
+            >
+              <View
+                style={[
+                  styles.markerCircle,
+                  { backgroundColor: obs.color || "#7a6161ff" },
+                ]}
+              />
+            </Marker>
           ))}
       </MapView>
 

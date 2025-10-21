@@ -39,13 +39,13 @@ const defaultObjects = [
   },
 ];
 
-// 📍 Example Enschede coordinates (random sample)
+// 📍 Example Enschede coordinates
 const enschedePoints = [
-  { lat: 52.2215, lon: 6.8937 }, // Center
-  { lat: 52.2248, lon: 6.8871 }, // University area
-  { lat: 52.2189, lon: 6.9022 }, // City center east
-  { lat: 52.2161, lon: 6.8953 }, // Market area
-  { lat: 52.2285, lon: 6.9049 }, // North park
+  { lat: 52.2215, lon: 6.8937 },
+  { lat: 52.2248, lon: 6.8871 },
+  { lat: 52.2189, lon: 6.9022 },
+  { lat: 52.2161, lon: 6.8953 },
+  { lat: 52.2285, lon: 6.9049 },
 ];
 
 // 🧠 Helper
@@ -67,31 +67,24 @@ export const addObjectData = async (db: ExpoSQLiteDatabase) => {
       // 1️⃣ Create DemoProject
       const insertedProject = await tx
         .insert(projects)
-        .values({
-          name: "DemoProject",
-          created_at: Date.now(),
-        })
+        .values({ name: "DemoProject", created_at: Date.now() })
         .returning({ id: projects.id })
         .execute();
 
       const projectId = insertedProject?.[0]?.id;
       if (!projectId) throw new Error("Failed to create DemoProject");
-      console.log("🌱 DemoProject created:", projectId);
 
       // 2️⃣ Create demo session
       const insertedSession = await tx
         .insert(surveySessions)
-        .values({
-          project_id: projectId,
-          started_at: Date.now(),
-        })
+        .values({ project_id: projectId, started_at: Date.now() })
         .returning({ id: surveySessions.id })
         .execute();
-      const sessionId = insertedSession?.[0]?.id;
 
-      // 3️⃣ Insert all default objects + attributes
+      const sessionId = insertedSession?.[0]?.id;
       const objectIdMap: Record<string, number> = {};
 
+      // 3️⃣ Insert all default objects + attributes
       for (const [objIndex, obj] of defaultObjects.entries()) {
         const insertedObject = await tx
           .insert(objectTypes)
@@ -108,7 +101,6 @@ export const addObjectData = async (db: ExpoSQLiteDatabase) => {
         if (!objectId) continue;
         objectIdMap[obj.name] = objectId;
 
-        // Attributes
         for (const [attrIndex, attr] of obj.attributes.entries()) {
           const insertedAttr = await tx
             .insert(attributes)
@@ -129,12 +121,7 @@ export const addObjectData = async (db: ExpoSQLiteDatabase) => {
           if (attr.type === "select" && attr.values?.length > 0) {
             await tx
               .insert(attributeValues)
-              .values(
-                attr.values.map((v) => ({
-                  attribute_id: attrId,
-                  value_text: v,
-                }))
-              )
+              .values(attr.values.map((v) => ({ attribute_id: attrId, value_text: v })))
               .execute();
           }
         }
@@ -144,10 +131,10 @@ export const addObjectData = async (db: ExpoSQLiteDatabase) => {
 
       // 4️⃣ Insert sample observations for Enschede
       console.log("📍 Adding sample observations in Enschede...");
-
       const now = Date.now();
+
       for (const point of enschedePoints) {
-        // Tree observation
+        // 🌳 Tree
         const treeObs = await tx
           .insert(observations)
           .values({
@@ -165,20 +152,12 @@ export const addObjectData = async (db: ExpoSQLiteDatabase) => {
         const treeId = treeObs?.[0]?.id;
         if (treeId) {
           await tx.insert(attributeCoordinateValues).values([
-            {
-              observation_id: treeId,
-              attribute_id: 1, // Type (example)
-              value_text: "Oak",
-            },
-            {
-              observation_id: treeId,
-              attribute_id: 2, // Condition
-              value_text: "Good",
-            },
+            { observation_id: treeId, attribute_id: 1, value_text: "Oak" },
+            { observation_id: treeId, attribute_id: 2, value_text: "Good" },
           ]);
         }
 
-        // Car observation
+        // 🚗 Car
         const carObs = await tx
           .insert(observations)
           .values({
@@ -196,21 +175,40 @@ export const addObjectData = async (db: ExpoSQLiteDatabase) => {
         const carId = carObs?.[0]?.id;
         if (carId) {
           await tx.insert(attributeCoordinateValues).values([
-            {
-              observation_id: carId,
-              attribute_id: 3, // Parked Legal
-              value_text: "true",
-            },
-            {
-              observation_id: carId,
-              attribute_id: 4, // Color
-              value_text: "Blue",
-            },
+            { observation_id: carId, attribute_id: 3, value_text: "true" },
+            { observation_id: carId, attribute_id: 4, value_text: "Blue" },
+          ]);
+        }
+
+        // 🐦 Bird
+        const birdObs = await tx
+          .insert(observations)
+          .values({
+            session_id: sessionId!,
+            object_type_id: objectIdMap["Bird"],
+            latitude: point.lat + 0.002 * Math.random(),
+            longitude: point.lon + 0.002 * Math.random(),
+            captured_at: now,
+            status: "draft",
+            mapVisible: true,
+          })
+          .returning({ id: observations.id })
+          .execute();
+
+        const birdId = birdObs?.[0]?.id;
+        if (birdId) {
+          const species = ["Crow", "Sparrow", "Parrot", "Eagle"][
+            Math.floor(Math.random() * 4)
+          ];
+          const canFly = Math.random() > 0.2 ? "true" : "false";
+          await tx.insert(attributeCoordinateValues).values([
+            { observation_id: birdId, attribute_id: 5, value_text: species },
+            { observation_id: birdId, attribute_id: 6, value_text: canFly },
           ]);
         }
       }
 
-      console.log("🚗🌳 Demo observations added successfully!");
+      console.log("🌳🚗🐦 Demo observations added successfully!");
     });
 
     await AsyncStorage.setItem(seedKey, "true");
