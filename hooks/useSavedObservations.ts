@@ -15,9 +15,7 @@ export function useSavedObservations(projectId?: number) {
   const db = drizzle(sqliteDb);
   const refreshDB = useRefreshDbStore((state) => state.refreshDB);
 
-  console.log("projectId:", projectId);
-
-  // ✅ Main observations query
+  // ✅ Main observations query (only mapVisible = true)
   const query = db
     .select({
       id: observations.id,
@@ -28,6 +26,7 @@ export function useSavedObservations(projectId?: number) {
       capturedAt: observations.captured_at,
       notes: observations.notes,
       status: observations.status,
+      mapVisible: observations.mapVisible, // ✅ include field
       objectName: objectTypes.name,
       color: objectTypes.color,
     })
@@ -38,16 +37,17 @@ export function useSavedObservations(projectId?: number) {
       projectId
         ? and(
             eq(objectTypes.project_id, projectId),
-            eq(surveySessions.project_id, projectId)
+            eq(surveySessions.project_id, projectId),
+            eq(observations.mapVisible, true) // ✅ only visible ones
           )
-        : undefined
+        : eq(observations.mapVisible, true) // ✅ when no projectId
     )
     .orderBy(desc(observations.captured_at));
 
-  // ✅ Use live query for reactivity
+  // ✅ Live query for reactive updates
   const { data: baseObservations } = useLiveQuery(query, [projectId, refreshDB]);
 
-  // ✅ Build attribute values per observation
+  // ✅ Attribute values
   const { data: attributeValues } = useLiveQuery(
     db
       .select({
@@ -61,7 +61,7 @@ export function useSavedObservations(projectId?: number) {
     [refreshDB]
   );
 
-  // ✅ Merge attribute values into observations
+  // ✅ Merge attributes with visible observations
   const merged = (baseObservations ?? []).map((obs) => ({
     ...obs,
     attributes: (attributeValues ?? [])

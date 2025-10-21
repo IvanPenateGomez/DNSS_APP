@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f96abb75-dc56-4243-ac0f-389b7991486f",
+  "id": "aeec7339-4223-4ab3-a828-c26dffbcf544",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attribute_coordinate_values": {
@@ -309,6 +309,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'draft'"
+        },
+        "map_visible": {
+          "name": "map_visible",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
         }
       },
       "indexes": {},

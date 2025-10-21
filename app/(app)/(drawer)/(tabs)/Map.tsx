@@ -33,7 +33,6 @@ export default function Map() {
   const projectId = useProjectStore((s) => s.projectId);
   const { data: observationsData } = useSavedObservations(projectId);
 
-  console.log("observationsData: ", observationsData);
   const isLoading = !observationsData;
   const sqliteDb = useSQLiteContext();
   const db = drizzle(sqliteDb);

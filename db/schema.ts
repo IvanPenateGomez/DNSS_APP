@@ -65,6 +65,9 @@ export const observations = sqliteTable("observations", {
   captured_at: integer("captured_at").notNull(), // timestamp (ms)
   notes: text("notes"),
   status: text("status").notNull().default("draft"),
+
+  // ✅ New column
+  mapVisible: integer("map_visible", { mode: "boolean" }).notNull().default(true),
 });
 
 /* ───────────────────────────────

@@ -43,6 +43,7 @@ CREATE TABLE `observations` (
 	`captured_at` integer NOT NULL,
 	`notes` text,
 	`status` text DEFAULT 'draft' NOT NULL,
+	`map_visible` integer DEFAULT true NOT NULL,
 	FOREIGN KEY (`session_id`) REFERENCES `survey_sessions`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`object_type_id`) REFERENCES `object_types`(`id`) ON UPDATE no action ON DELETE cascade
 );
