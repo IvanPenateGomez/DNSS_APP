@@ -1,9 +1,5 @@
 import { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
-import {
-  surveySessions,
-  observations,
-  attributeValues,
-} from "@/db/schema";
+import { surveySessions, observations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function saveObservation(
@@ -11,7 +7,7 @@ export async function saveObservation(
   projectId: number,
   objectId: number,
   coords: { lat: number; lon: number },
-  selectedValues: Record<number, string | string[]>
+  selectedValues?: Record<number, string | string[]> // optional now
 ) {
   if (!projectId || !objectId) {
     console.warn("⚠️ Missing projectId or objectId in saveObservation");
@@ -21,7 +17,7 @@ export async function saveObservation(
   const now = Date.now();
 
   await db.transaction(async (tx) => {
-    // 1️⃣ Ensure session exists (or create one)
+    // 1️⃣ Ensure a session exists (or create one)
     let sessionId: number | undefined;
 
     const existingSession = await tx
@@ -48,7 +44,7 @@ export async function saveObservation(
 
     if (!sessionId) throw new Error("Failed to get or create session");
 
-    // 2️⃣ Create new observation
+    // 2️⃣ Insert a new observation only
     const insertedObs = await tx
       .insert(observations)
       .values({
@@ -65,35 +61,6 @@ export async function saveObservation(
     const observationId = insertedObs?.[0]?.id;
     if (!observationId) throw new Error("Failed to create observation");
 
-    // 3️⃣ Save attribute values
-    for (const [attrId, val] of Object.entries(selectedValues)) {
-      if (!val) continue;
-
-      if (Array.isArray(val)) {
-        // select (multi)
-        for (const v of val) {
-          await tx
-            .insert(attributeValues)
-            .values({
-              observation_id: observationId,
-              attribute_id: Number(attrId),
-              value_text: v,
-            })
-            .execute();
-        }
-      } else {
-        // boolean or text
-        await tx
-          .insert(attributeValues)
-          .values({
-            observation_id: observationId,
-            attribute_id: Number(attrId),
-            value_text: val,
-          })
-          .execute();
-      }
-    }
-
-    console.log("✅ Observation + attribute values saved:", observationId);
+    console.log("✅ Observation saved:", observationId);
   });
 }

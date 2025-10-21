@@ -321,7 +321,7 @@ const WelcomeScreen = () => {
       entering={FadeIn.duration(400).delay(300)}
       style={[
         styles.container,
-        { paddingTop: insets.top + 20, paddingBottom: 40 },
+        { paddingTop: insets.top + 20, paddingBottom: 0 },
       ]}
     >
       <Text style={styles.title}>Your Projects</Text>
