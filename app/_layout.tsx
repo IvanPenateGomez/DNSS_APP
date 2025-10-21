@@ -1,6 +1,7 @@
 import { addObjectData } from "@/db/addObjectData";
 import migrations from "@/drizzle/migrations";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useInitializeStore } from "@/zustand/useInitializeStore";
 import {
   DarkTheme,
   DefaultTheme,
@@ -22,12 +23,12 @@ export default function RootLayout() {
   const expoDb = openDatabaseSync(DATABASE_NAME);
   const db = drizzle(expoDb);
   const { success, error } = useMigrations(db, migrations);
-
+  const { initializeCount, increment } = useInitializeStore();
   useEffect(() => {
     if (success) {
        addObjectData(db);
     }
-  }, [success, error]);
+  }, [success, error, initializeCount]);
   const insets = useSafeAreaInsets();
   return (
     <Suspense

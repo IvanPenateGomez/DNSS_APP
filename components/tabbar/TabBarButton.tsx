@@ -48,6 +48,7 @@ const TabBarButton = ({
     return { opacity };
   });
   //GOOD
+  console.log("routeName: ",routeName)
   return (
     <Pressable
       onPress={onPress}

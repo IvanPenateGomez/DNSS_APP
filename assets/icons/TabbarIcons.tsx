@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 
-export type IconKeys = "home" | "Map" | "newProject";
+export type IconKeys = "home" | "Map" ;
 
 const navigationButtonSize = 26;
 
@@ -11,7 +11,5 @@ export const icons = {
   Map: (props: any) => (
     <Feather name="map" size={navigationButtonSize} {...props} />
   ),
-  newProject: (props: any) => (
-    <Feather name="file-plus" size={navigationButtonSize} {...props} />
-  ),
+
 };

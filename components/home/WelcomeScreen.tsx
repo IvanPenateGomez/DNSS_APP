@@ -8,6 +8,8 @@ import {
 } from "@/db/schema";
 import { useProjects } from "@/hooks/useProjects";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
+import { useInitializeStore } from "@/zustand/useInitializeStore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import * as DocumentPicker from "expo-document-picker";
@@ -36,6 +38,12 @@ const WelcomeScreen = () => {
   const db = drizzle(sqliteDb);
   const insets = useSafeAreaInsets();
   const refreshDb = useRefreshDbStore((s) => s.increment);
+
+
+
+  // ✅ 1. Get actual SQLite database path from context
+  const dbPath = sqliteDb.databasePath;
+
 
   const { data: projectList } = useProjects();
   const [showPrompt, setShowPrompt] = useState(false);
@@ -399,6 +407,59 @@ const WelcomeScreen = () => {
         }
       />
 
+      {/* 🔄 Reset App Data Button */}
+      <View style={styles.resetContainer}>
+        <TouchableOpacity
+          style={styles.resetButton}
+          onPress={() => {
+            Alert.alert(
+              "Reset App Data",
+              "This will delete all local data (database + settings) and restart the app. Continue?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Reset",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      console.log("🧹 Starting full reset...");
+            
+                      if (dbPath) {
+                        console.log("🗑 Deleting DB at:", dbPath);
+                        await FileSystem.deleteAsync(dbPath, {
+                          idempotent: true,
+                        });
+                      } else {
+                        console.warn("⚠️ No databasePath found in context");
+                      }
+
+                      // ✅ 2. Clear AsyncStorage
+                      await AsyncStorage.clear();
+                      console.log("🧽 Cleared AsyncStorage");
+
+                      // ✅ 3. Refresh Zustand store & reload app
+                      refreshDb();
+                      
+                      useInitializeStore.getState().increment();
+                      Alert.alert(
+                        "✅ Reset Complete",
+                        "All local data cleared. Restart the app to initialize."
+                      );
+                 
+                    } catch (err) {
+                      console.error("❌ Reset failed:", err);
+                      Alert.alert("Error", "Failed to reset app data.");
+                    }
+                  },
+                },
+              ]
+            );
+          }}
+        >
+          <Text style={styles.resetButtonText}>Reset App Data</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* ✅ Android Prompt Modal */}
       <Modal transparent visible={showPrompt} animationType="fade">
         <View style={styles.modalOverlay}>
@@ -523,6 +584,25 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 20,
   },
+  resetContainer: {
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 40,
+  },
+  resetButton: {
+    backgroundColor: "#e4d7d7",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: "#b89a9aff",
+  },
+  resetButtonText: {
+    color: "#7a6161ff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+
   buttonText: {
     color: "#fff",
     textAlign: "center",
