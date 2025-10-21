@@ -1,7 +1,7 @@
 import { useSQLiteContext } from "expo-sqlite";
 import { drizzle, useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { desc, eq } from "drizzle-orm";
-import { observations, objectTypes } from "@/db/schema";
+import { desc, eq, and } from "drizzle-orm";
+import { observations, objectTypes, surveySessions } from "@/db/schema";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
 
 export function useSavedObservations(projectId?: number) {
@@ -9,8 +9,10 @@ export function useSavedObservations(projectId?: number) {
   const db = drizzle(sqliteDb);
   const refreshDB = useRefreshDbStore((state) => state.refreshDB);
 
-  // ✅ Proper join to include object type name + color
-  const baseQuery = db
+  console.log("projectId: ", projectId)
+
+  // ✅ Build one complete joined query
+  const query = db
     .select({
       id: observations.id,
       sessionId: observations.session_id,
@@ -20,20 +22,19 @@ export function useSavedObservations(projectId?: number) {
       capturedAt: observations.captured_at,
       notes: observations.notes,
       status: observations.status,
-
-      // 🟢 Join + alias as `objectName` and `color`
       objectName: objectTypes.name,
       color: objectTypes.color,
     })
     .from(observations)
     .leftJoin(objectTypes, eq(observations.object_type_id, objectTypes.id))
+    .leftJoin(surveySessions, eq(observations.session_id, surveySessions.id))
+    .where(
+      projectId
+        ? and(eq(objectTypes.project_id, projectId), eq(surveySessions.project_id, projectId))
+        : undefined
+    )
     .orderBy(desc(observations.captured_at));
 
-  // ✅ Optional project filter
-  const query = projectId
-    ? baseQuery.where(eq(objectTypes.project_id, projectId))
-    : baseQuery;
-
-  // ✅ Auto-refresh when DB changes
-  return useLiveQuery(query, [refreshDB, projectId]);
+  // ✅ Single reactive query
+  return useLiveQuery(query, [projectId, refreshDB]);
 }

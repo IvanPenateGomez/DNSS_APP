@@ -3,6 +3,7 @@ import EnterDataModal from "@/components/map/EnterDataModal";
 import { useDrawer } from "@/context/DrawerContext";
 import { observations } from "@/db/schema";
 import { useSavedObservations } from "@/hooks/useSavedObservations";
+import { useProjectStore } from "@/zustand/projectId";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
 import { Ionicons } from "@expo/vector-icons";
 import { eq } from "drizzle-orm";
@@ -29,8 +30,8 @@ export default function Map() {
   const insets = useSafeAreaInsets();
   const { openDrawer } = useDrawer();
 
-  // 🔹 Hooks
-  const { data: observationsData } = useSavedObservations();
+   const projectId = useProjectStore((s) => s.projectId);
+  const { data: observationsData } = useSavedObservations(projectId);
 
   console.log("observationsData: ", observationsData);
   const isLoading = !observationsData;

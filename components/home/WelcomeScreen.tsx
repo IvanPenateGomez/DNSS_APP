@@ -357,7 +357,7 @@ const WelcomeScreen = () => {
         data={projectList}
         keyExtractor={(item) => String(item.id)}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: 20, paddingBottom: 80 }}
+        contentContainerStyle={{ paddingTop: 20, paddingBottom: 20 }}
         renderItem={({ item, index }) => (
           <Animated.View
             entering={FadeInDown.duration(300).delay(index * 100)}
@@ -405,10 +405,8 @@ const WelcomeScreen = () => {
             No projects yet. Create one above!
           </Text>
         }
-      />
-
-      {/* 🔄 Reset App Data Button */}
-      <View style={styles.resetContainer}>
+        ListFooterComponent={<>
+        <View style={styles.resetContainer}>
         <TouchableOpacity
           style={styles.resetButton}
           onPress={() => {
@@ -459,6 +457,11 @@ const WelcomeScreen = () => {
           <Text style={styles.resetButtonText}>Reset App Data</Text>
         </TouchableOpacity>
       </View>
+        </>}
+      />
+
+      {/* 🔄 Reset App Data Button */}
+      
 
       {/* ✅ Android Prompt Modal */}
       <Modal transparent visible={showPrompt} animationType="fade">

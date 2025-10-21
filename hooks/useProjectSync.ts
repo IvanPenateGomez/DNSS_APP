@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import { useSQLiteContext } from "expo-sqlite";
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { objectTypes, attributes, attributeValues } from "@/db/schema";
 import { ObjectItem, ValueType } from "@/components/new-project helper/form";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
@@ -12,7 +12,18 @@ export function useProjectSync(
   setObjects: (data: ObjectItem[]) => void
 ) {
   const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb);
+
+  // 🔎 Enable SQL logging
+  const db = drizzle(sqliteDb, { logger: true });
+
+  const debug = (label: string, data?: any) => {
+    // Safer consistent logging
+    if (data !== undefined) {
+      console.log(`[SYNC] ${label}:`, JSON.parse(JSON.stringify(data)));
+    } else {
+      console.log(`[SYNC] ${label}`);
+    }
+  };
 
   // --- LOAD PROJECT DATA ---
   useEffect(() => {
@@ -20,7 +31,7 @@ export function useProjectSync(
 
     const loadFromDatabase = async () => {
       try {
-        console.log("📦 Loading project data for:", projectId);
+        debug("LOAD start", { projectId });
 
         const dbObjects = await db
           .select()
@@ -28,12 +39,14 @@ export function useProjectSync(
           .where(eq(objectTypes.project_id, projectId))
           .orderBy(objectTypes.order_index);
 
-        const dbAttributes = await db
-          .select()
-          .from(attributes)
-          .orderBy(attributes.order_index);
+        debug("LOAD objects.count", dbObjects.length);
+        debug("LOAD objects", dbObjects);
+
+        const dbAttributes = await db.select().from(attributes);
+        debug("LOAD attributes.count", dbAttributes.length);
 
         const dbValues = await db.select().from(attributeValues);
+        debug("LOAD attributeValues.count", dbValues.length);
 
         const mapped: ObjectItem[] = dbObjects.map((obj) => ({
           id: obj.id,
@@ -55,53 +68,49 @@ export function useProjectSync(
             })),
         }));
 
+        debug("LOAD mapped.objects.count", mapped.length);
         setObjects(mapped);
-        useRefreshDbStore.getState().increment();
 
-        console.log("✅ Loaded project data with select values:", projectId);
+        useRefreshDbStore.getState().increment();
+        debug("LOAD done");
       } catch (err) {
-        console.error("❌ Failed to load project data:", err);
+        console.error("[SYNC] LOAD error:", err);
       }
     };
 
     loadFromDatabase();
   }, [projectId]);
 
-  // --- SAVE PROJECT DATA (UPDATE / UPSERT) ---
+  // --- SAVE PROJECT DATA (UPSERT ONLY, NO DELETE) ---
   useEffect(() => {
     if (!projectId || projectId === 0) return;
 
     const saveToDatabase = async () => {
       try {
-        console.log("💾 Syncing project data for project:", projectId);
+        debug("SAVE start", {
+          projectId,
+          stateObjectsCount: objects.length,
+        });
 
-        // 🔹 1. Fetch all existing DB objects
         const existingObjects = await db
           .select()
           .from(objectTypes)
           .where(eq(objectTypes.project_id, projectId));
 
-        const existingIds = existingObjects.map((o) => o.id);
-        const newIds = objects.map((o) => o.id).filter(Boolean);
+        debug("SAVE existingObjects.count", existingObjects.length);
 
-        // 🔹 2. Delete objects that no longer exist in state
-        if (existingIds.length > 0) {
-          const idsToDelete = existingIds.filter((id) => !newIds.includes(id));
-          if (idsToDelete.length > 0) {
-            await db
-              .delete(objectTypes)
-              .where(inArray(objectTypes.id, idsToDelete));
-          }
-        }
-
-        // 🔹 3. Upsert each object
         for (const [objIndex, obj] of objects.entries()) {
-          const existing = existingObjects.find((o) => o.id === obj.id);
+          debug("OBJ loop start", { objIndex, objStateId: obj.id, name: obj.name });
 
-          let objectTypeId = obj.id;
+          // Try match by ID first, fallback to name
+          const existing =
+            existingObjects.find((o) => o.id === obj.id) ||
+            existingObjects.find((o) => o.name === obj.name);
+
+          let objectTypeId = existing?.id;
 
           if (existing) {
-            // UPDATE existing
+            debug("OBJ update", { existingId: existing.id });
             await db
               .update(objectTypes)
               .set({
@@ -109,10 +118,11 @@ export function useProjectSync(
                 color: obj.color,
                 order_index: objIndex,
               })
-              .where(eq(objectTypes.id, obj.id));
+              .where(eq(objectTypes.id, existing.id))
+              .run();
           } else {
-            // INSERT new
-            const inserted = await db
+            debug("OBJ insert", { name: obj.name, color: obj.color, order_index: objIndex });
+            const res = await db
               .insert(objectTypes)
               .values({
                 project_id: projectId,
@@ -120,36 +130,47 @@ export function useProjectSync(
                 color: obj.color,
                 order_index: objIndex,
               })
-              .returning({ id: objectTypes.id });
-            objectTypeId = inserted[0]?.id;
+              .run();
+
+            // ✅ Get ID from run() result (Expo SQLite)
+            const newId = Number((res as any)?.lastInsertRowId ?? 0);
+            debug("OBJ insert result", { insertId: newId, runResult: res });
+
+            objectTypeId = newId || objectTypeId;
+            if (objectTypeId) {
+              obj.id = objectTypeId; // reflect back into state object
+            }
           }
 
-          if (!objectTypeId) continue;
+          if (!objectTypeId) {
+            console.warn("[SYNC] OBJ missing objectTypeId, skipping attributes");
+            continue;
+          }
 
-          // 🔹 4. Sync attributes (delete missing, update existing, insert new)
+          // --- ATTRIBUTES ---
           const existingAttrs = await db
             .select()
             .from(attributes)
             .where(eq(attributes.object_type_id, objectTypeId));
 
-          const existingAttrIds = existingAttrs.map((a) => a.id);
-          const newAttrIds = obj.attributes.map((a) => a.id).filter(Boolean);
-
-          const attrsToDelete = existingAttrIds.filter(
-            (id) => !newAttrIds.includes(id)
-          );
-          if (attrsToDelete.length > 0) {
-            await db
-              .delete(attributes)
-              .where(inArray(attributes.id, attrsToDelete));
-          }
+          debug("ATTR existing.count", existingAttrs.length);
 
           for (const [attrIndex, attr] of obj.attributes.entries()) {
-            const existingAttr = existingAttrs.find((a) => a.id === attr.id);
+            debug("ATTR loop start", {
+              attrIndex,
+              attrStateId: attr.id,
+              name: attr.name,
+              valueType: attr.valueType,
+            });
 
-            let attributeId = attr.id;
+            const existingAttr =
+              existingAttrs.find((a) => a.id === attr.id) ||
+              existingAttrs.find((a) => a.label === attr.name);
+
+            let attributeId = existingAttr?.id;
 
             if (existingAttr) {
+              debug("ATTR update", { existingAttrId: existingAttr.id });
               await db
                 .update(attributes)
                 .set({
@@ -158,9 +179,16 @@ export function useProjectSync(
                   type: attr.valueType,
                   order_index: attrIndex,
                 })
-                .where(eq(attributes.id, attr.id));
+                .where(eq(attributes.id, existingAttr.id))
+                .run();
             } else {
-              const insertedAttr = await db
+              debug("ATTR insert", {
+                object_type_id: objectTypeId,
+                label: attr.name,
+                type: attr.valueType,
+                order_index: attrIndex,
+              });
+              const res = await db
                 .insert(attributes)
                 .values({
                   object_type_id: objectTypeId,
@@ -170,56 +198,60 @@ export function useProjectSync(
                   required: false,
                   order_index: attrIndex,
                 })
-                .returning({ id: attributes.id });
+                .run();
 
-              attributeId = insertedAttr[0]?.id;
+              const newAttrId = Number((res as any)?.lastInsertRowId ?? 0);
+
+              attributeId = newAttrId || attributeId;
+              if (attributeId) {
+                attr.id = attributeId; // reflect back into state
+              }
             }
 
-            if (!attributeId) continue;
+            if (!attributeId) {
+              console.warn("[SYNC] ATTR missing attributeId, skipping values");
+              continue;
+            }
 
-            // 🔹 5. Sync select values if applicable
+            // --- SELECT VALUES ---
             if (attr.valueType === "select") {
               const existingVals = await db
                 .select()
                 .from(attributeValues)
                 .where(eq(attributeValues.attribute_id, attributeId));
 
-              const existingValIds = existingVals.map((v) => v.id);
-              const newValNames = attr.values.map((v) => v.name);
+              const existingNames = existingVals.map((v) => v.value_text ?? "");
+              debug("VAL existing.count", existingVals.length);
+              debug("VAL existing.names", existingNames);
 
-              // Delete values not in new list
-              const valsToDelete = existingVals.filter(
-                (v) => !newValNames.includes(v.value_text ?? "")
-              );
-              if (valsToDelete.length > 0) {
-                await db
-                  .delete(attributeValues)
-                  .where(
-                    inArray(
-                      attributeValues.id,
-                      valsToDelete.map((v) => v.id)
-                    )
-                  );
-              }
-
-              // Insert new values
-              const existingNames = existingVals.map((v) => v.value_text);
               for (const val of attr.values) {
                 if (!existingNames.includes(val.name)) {
-                  await db.insert(attributeValues).values({
-                    attribute_id: attributeId,
-                    value_text: val.name,
-                  });
+                  debug("VAL insert", { attribute_id: attributeId, value_text: val.name });
+                  const res = await db
+                    .insert(attributeValues)
+                    .values({
+                      attribute_id: attributeId,
+                      value_text: val.name,
+                    })
+                    .run();
+                  const newValId = Number((res as any)?.lastInsertRowId ?? 0);
+                  debug("VAL insert result", { insertId: newValId, runResult: res });
+                } else {
+                  debug("VAL skip (already exists)", { value_text: val.name });
                 }
               }
             }
+
+            debug("ATTR loop end", { attributeId });
           }
+
+          debug("OBJ loop end", { objectTypeId });
         }
 
         useRefreshDbStore.getState().increment();
-        console.log("✅ Synced project data:", projectId);
+        debug("SAVE done");
       } catch (err) {
-        console.error("❌ Failed to sync project data:", err);
+        console.error("[SYNC] SAVE error:", err);
       }
     };
 

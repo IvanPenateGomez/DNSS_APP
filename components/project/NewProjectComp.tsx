@@ -56,13 +56,14 @@ export default function NewProjectComp({ projectId, projectName }: Props) {
     selectOptionsVisible,
     addSelectOption,
     selectValues,
-
+    currentSelectAttributeId, // ✅ add this
+    setCurrentSelectAttributeId, // (optional, if you need it)
+  
     setInputValue,
     setColorValue,
-    setObjects,
     setSelectOptionsVisible,
     setSelectValues,
-
+  
     handleAddObject,
     handleAddAttribute,
     handleDeleteObject,
@@ -78,6 +79,7 @@ export default function NewProjectComp({ projectId, projectName }: Props) {
     resetColorModal,
     resetHexModal,
   } = useFormState(projectId);
+  
 
   const insets = useSafeAreaInsets();
 
@@ -119,85 +121,81 @@ export default function NewProjectComp({ projectId, projectName }: Props) {
               </View>
 
               {/* Show attributes */}
-              {obj.attributes.map(
-                (attr: Attribute) => (
-               
-                  (
-                    <View
-                      key={attr.id}
-                      style={[styles.attributeRow, { flexDirection: "column" }]}
+              {obj.attributes.map((attr: Attribute) => (
+                <View
+                  key={attr.id}
+                  style={[styles.attributeRow, { flexDirection: "column" }]}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      width: "100%",
+                    }}
+                  >
+                    <TouchableOpacity
+                      style={[
+                        styles.attributeBox,
+                        { backgroundColor: lighterColor, flex: 1 },
+                      ]}
+                      onPress={() => handleChangeAttributeName(obj.id, attr.id)}
                     >
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          width: "100%",
-                        }}
-                      >
-                        <TouchableOpacity
-                          style={[
-                            styles.attributeBox,
-                            { backgroundColor: lighterColor, flex: 1 },
-                          ]}
-                          onPress={() =>
-                            handleChangeAttributeName(obj.id, attr.id)
-                          }
-                        >
-                          <Text style={styles.attributeText}>
-                            {attr.name}{" "}
+                      <Text style={styles.attributeText}>
+                        {attr.name}{" "}
+                        <Text style={{ fontStyle: "italic", color: "#555" }}>
+                          ({attr.valueType})
+                        </Text>
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteAttributeButton}
+                      onPress={() => handleDeleteAttribute(attr.id)}
+                    >
+                      <Text style={styles.deleteAttributeText}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* List values below the attribute */}
+                  {/* List values below the attribute */}
+                  {attr.values.length > 0 && (
+                    <View
+                      style={[
+                        styles.valueSection,
+                        { backgroundColor: lighterColor },
+                      ]}
+                    >
+                      <Text style={styles.valueHeader}>Values:</Text>
+
+                      {attr.values.map((val) => (
+                        <View key={val.id} style={styles.valueRow}>
+                          <Text style={styles.valueBullet}>•</Text>
+                          <Text style={styles.valueText}>
+                            {val.name}{" "}
                             <Text
-                              style={{ fontStyle: "italic", color: "#555" }}
+                              style={[
+                                styles.valueType,
+                                val.valueType === "number"
+                                  ? styles.valueTypeNumber
+                                  : val.valueType === "boolean"
+                                  ? styles.valueTypeBool
+                                  : val.valueType === "date"
+                                  ? styles.valueTypeDate
+                                  : val.valueType === "image"
+                                  ? styles.valueTypeImage
+                                  : val.valueType === "select"
+                                  ? styles.valueTypeSelect
+                                  : styles.valueTypeText,
+                              ]}
                             >
-                              ({attr.valueType})
+                              ({val.valueType})
                             </Text>
                           </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.deleteAttributeButton}
-                          onPress={() => handleDeleteAttribute(obj.id, attr.id)}
-                        >
-                          <Text style={styles.deleteAttributeText}>×</Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* List values below the attribute */}
-            {/* List values below the attribute */}
-            {attr.values.length > 0 && (
-  <View style={[styles.valueSection, { backgroundColor: lighterColor }]}>
-    <Text style={styles.valueHeader}>Values:</Text>
-
-    {attr.values.map((val) => (
-      <View key={val.id} style={styles.valueRow}>
-        <Text style={styles.valueBullet}>•</Text>
-        <Text style={styles.valueText}>
-          {val.name}{" "}
-          <Text
-            style={[
-              styles.valueType,
-              val.valueType === "number"
-                ? styles.valueTypeNumber
-                : val.valueType === "boolean"
-                ? styles.valueTypeBool
-                : val.valueType === "date"
-                ? styles.valueTypeDate
-                : val.valueType === "image"
-                ? styles.valueTypeImage
-                : val.valueType === "select"
-                ? styles.valueTypeSelect
-                : styles.valueTypeText,
-            ]}
-          >
-            ({val.valueType})
-          </Text>
-        </Text>
-      </View>
-    ))}
-  </View>
-)}
-        </View>
-                  )
-                )
-              )}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))}
 
               <TouchableOpacity
                 style={[
@@ -260,8 +258,13 @@ export default function NewProjectComp({ projectId, projectName }: Props) {
           onDone={() => setSelectOptionsVisible(false)}
           option={selectValues}
           setOption={setSelectValues}
-          handleAdd={addSelectOption}
+          handleAdd={() => {
+            if (!currentSelectAttributeId || !selectValues.trim()) return;
+            addSelectOption(currentSelectAttributeId, selectValues.trim());
+            setSelectValues(""); // clear field
+          }}
         />
+
         <View style={[styles.fixedButtonContainer, { bottom: 0 }]}>
           <TouchableOpacity
             style={styles.startSurveyButton}
