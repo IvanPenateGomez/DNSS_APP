@@ -361,6 +361,18 @@ export const useFormState = (projectId: number) => {
       setInputVisible(true);
     }
   };
+
+  const updateAttributeValue = async (valueId: number, newName: string) => {
+    if (!newName.trim()) return;
+
+    await db
+      .update(attributeValues)
+      .set({ value_text: newName })
+      .where(eq(attributeValues.id, valueId));
+
+    refresh();
+  };
+
   
   return {
     objects,
@@ -418,5 +430,6 @@ export const useFormState = (projectId: number) => {
     resetInputModal,
     resetColorModal,
     resetHexModal,
+    updateAttributeValue
   };
 };
