@@ -11,7 +11,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
 import { useInitializeStore } from "@/zustand/useInitializeStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { eq } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -76,21 +76,64 @@ const WelcomeScreen = () => {
       };
   
       if (type === "whole") {
-        // 🗂 Full project export
+        // 1️⃣ Project itself
         const proj = await db.select().from(projects).where(eq(projects.id, projectId));
+      
+        // 2️⃣ Object types belonging to project
         const objs = await db
           .select()
           .from(objectTypes)
           .where(eq(objectTypes.project_id, projectId));
-        const attrs = await db.select().from(attributes);
+      
+        // 3️⃣ Attributes for only those object types
+        const objectTypeIds = objs.map((o) => o.id);
+        const attrs = objectTypeIds.length
+          ? await db
+              .select()
+              .from(attributes)
+              .where(inArray(attributes.object_type_id, objectTypeIds))
+          : [];
+      
+        // 4️⃣ Sessions for this project
         const sessions = await db
           .select()
           .from(surveySessions)
           .where(eq(surveySessions.project_id, projectId));
-        const obs = await db.select().from(observations);
-        const vals = await db.select().from(attributeValues);
-        const coordVals = await db.select().from(attributeCoordinateValues);
-  
+      
+        // 5️⃣ Observations from only those sessions
+        const sessionIds = sessions.map((s) => s.id);
+        const obs = sessionIds.length
+          ? await db
+              .select()
+              .from(observations)
+              .where(inArray(observations.session_id, sessionIds))
+          : [];
+      
+        // 6️⃣ Attribute values for only those attributes
+        const attrIds = attrs.map((a) => a.id);
+        const vals = attrIds.length
+          ? await db
+              .select()
+              .from(attributeValues)
+              .where(inArray(attributeValues.attribute_id, attrIds))
+          : [];
+      
+        // 7️⃣ Coordinate values for only those observations + attributes
+        const obsIds = obs.map((o) => o.id);
+        const coordVals =
+          obsIds.length && attrIds.length
+            ? await db
+                .select()
+                .from(attributeCoordinateValues)
+                .where(
+                  and(
+                    inArray(attributeCoordinateValues.observation_id, obsIds),
+                    inArray(attributeCoordinateValues.attribute_id, attrIds)
+                  )
+                )
+            : [];
+      
+        // ✅ Combine into CSV
         csv =
           toCSV(proj, "PROJECTS") +
           toCSV(objs, "OBJECT_TYPES") +
@@ -99,7 +142,8 @@ const WelcomeScreen = () => {
           toCSV(obs, "OBSERVATIONS") +
           toCSV(vals, "ATTRIBUTE_VALUES") +
           toCSV(coordVals, "ATTRIBUTE_COORDINATE_VALUES");
-        } else {
+      }
+       else {
           // 📍 Export location-based observations with flattened attributes
           const obs = await db
             .select({
