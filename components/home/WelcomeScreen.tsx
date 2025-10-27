@@ -144,82 +144,85 @@ const WelcomeScreen = () => {
           toCSV(coordVals, "ATTRIBUTE_COORDINATE_VALUES");
       }
        else {
-          // 📍 Export location-based observations with flattened attributes
-          const obs = await db
-            .select({
-              observation_id: observations.id,
-              latitude: observations.latitude,
-              longitude: observations.longitude,
-              captured_at: observations.captured_at,
-              notes: observations.notes,
-              status: observations.status,
-              object_type_id: observations.object_type_id,
-              session_id: observations.session_id,
-            })
-            .from(observations)
-            .innerJoin(surveySessions, eq(surveySessions.id, observations.session_id))
-            .where(eq(surveySessions.project_id, projectId));
-        
-          if (!obs?.length) {
-            Alert.alert("No data", "No observations found for export.");
-            return;
-          }
-        
-          // Load supporting data for joins
-          const [objs, attrs, vals] = await Promise.all([
-            db.select().from(objectTypes).where(eq(objectTypes.project_id, projectId)),
-            db.select().from(attributes),
-            db.select().from(attributeValues),
-          ]);
-        
-          // Build lookup maps for faster join-like access
-          const objectMap = Object.fromEntries(objs.map((o) => [o.id, o.name]));
-          const attrMap = Object.fromEntries(attrs.map((a) => [a.id, a.label]));
-        
-          // Flatten rows
-          const flattened: any[] = [];
-        
-          for (const o of obs) {
-            const relatedVals = vals.filter((v) =>
-              attrs.some(
-                (a) => a.id === v.attribute_id && a.object_type_id === o.object_type_id
-              )
-            );
-        
-            if (relatedVals.length === 0) {
-              // still include observation row with no attributes
-              flattened.push({
-                observation_id: o.observation_id,
-                object_type: objectMap[o.object_type_id] ?? "",
-                latitude: o.latitude,
-                longitude: o.longitude,
-                attribute_label: "",
-                attribute_value: "",
-                captured_at: o.captured_at,
-               
-              });
-            } else {
-              for (const v of relatedVals) {
-                flattened.push({
-                  observation_id: o.observation_id,
-                  object_type: objectMap[o.object_type_id] ?? "",
-                  latitude: o.latitude,
-                  longitude: o.longitude,
-                  attribute_label: attrMap[v.attribute_id] ?? "",
-                  attribute_value: v.value_text ?? "",
-                  captured_at: o.captured_at,
-              
-                });
-              }
-            }
-          }
-        
-          // Convert to CSV
-          const headers = Object.keys(flattened[0]);
-          const rows = flattened.map((r) =>
-            headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")
-          );
-          csv = `FLATTENED_OBSERVATIONS\n${headers.join(",")}\n${rows.join("\n")}\n\n`;
+        const obs = await db
+        .select({
+          observation_id: observations.id,
+          latitude: observations.latitude,
+          longitude: observations.longitude,
+          captured_at: observations.captured_at,
+          notes: observations.notes,
+          status: observations.status,
+          object_type_id: observations.object_type_id,
+          session_id: observations.session_id,
+        })
+        .from(observations)
+        .innerJoin(surveySessions, eq(surveySessions.id, observations.session_id))
+        .where(
+          and(
+            eq(surveySessions.project_id, projectId),
+            eq(observations.mapVisible, true) // ✅ only active visible points
+          )
+        );
+      
+      if (!obs?.length) {
+        Alert.alert("No data", "No visible observations found for export.");
+        return;
+      }
+      
+      // 🗂 Load supporting data
+      const [objs, attrs, coordVals] = await Promise.all([
+        db.select().from(objectTypes).where(eq(objectTypes.project_id, projectId)),
+        db
+          .select()
+          .from(attributes)
+          .where(
+            inArray(
+              attributes.object_type_id,
+              obs.map((o) => o.object_type_id)
+            )
+          ),
+        db
+          .select()
+          .from(attributeCoordinateValues)
+          .where(
+            inArray(
+              attributeCoordinateValues.observation_id,
+              obs.map((o) => o.observation_id)
+            )
+          ),
+      ]);
+      
+      // Build lookup maps
+      const objectMap = Object.fromEntries(objs.map((o) => [o.id, o.name]));
+      const attrMap = Object.fromEntries(attrs.map((a) => [a.id, a.label]));
+      
+      // Group coordinate values by observation
+      const coordValueMap = coordVals.reduce<Record<number, string[]>>((acc, v) => {
+        if (!acc[v.observation_id]) acc[v.observation_id] = [];
+        const label = attrMap[v.attribute_id] ?? "";
+        acc[v.observation_id].push(`${label}: ${v.value_text}`);
+        return acc;
+      }, {});
+      
+      // 🧾 Flatten into clean export rows
+      const flattened = obs.map((o) => ({
+        observation_id: o.observation_id,
+        object_type: objectMap[o.object_type_id] ?? "",
+        latitude: o.latitude,
+        longitude: o.longitude,
+        attributes: coordValueMap[o.observation_id]?.join(" | ") ?? "", // all attributes combined
+        notes: o.notes ?? "",
+        status: o.status,
+        captured_at: o.captured_at,
+      }));
+      
+      // Convert to CSV (no title line)
+      const headers = Object.keys(flattened[0]);
+      const rows = flattened.map((r) =>
+        headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")
+      );
+      
+      csv = `${headers.join(",")}\n${rows.join("\n")}\n`;
         }
         
       // 💾 Write CSV file
