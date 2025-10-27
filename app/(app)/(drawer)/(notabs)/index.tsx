@@ -1,14 +1,16 @@
-import { useSQLiteContext } from "expo-sqlite";
+import { openDatabaseSync } from "expo-sqlite";
 import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { DATABASE_NAME } from "@/app/_layout";
 import WelcomeScreen from "@/components/home/WelcomeScreen";
 
 const index = () => {
-  const db = useSQLiteContext();
+  const db = openDatabaseSync(DATABASE_NAME, {
+    useNewConnection: true,
+  });
   const insets = useSafeAreaInsets();
-
 
   useEffect(() => {
     const loadData = async () => {

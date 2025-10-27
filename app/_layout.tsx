@@ -20,7 +20,9 @@ export const DATABASE_NAME = "GNSS_db";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const expoDb = openDatabaseSync(DATABASE_NAME);
+  const expoDb = openDatabaseSync(DATABASE_NAME, 	{
+    useNewConnection: true
+});
   const db = drizzle(expoDb);
   const { success, error } = useMigrations(db, migrations);
   const { initializeCount, increment } = useInitializeStore();

@@ -1,4 +1,4 @@
-import { useSQLiteContext } from "expo-sqlite";
+import { openDatabaseSync, useSQLiteContext } from "expo-sqlite";
 import { drizzle, useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { desc, eq, and } from "drizzle-orm";
 import {
@@ -9,10 +9,13 @@ import {
   attributes,
 } from "@/db/schema";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
+import { DATABASE_NAME } from "@/app/_layout";
 
 export function useSavedObservationsGrouped(projectId?: number) {
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb);
+  const expoDb = openDatabaseSync(DATABASE_NAME, {
+    useNewConnection: true,
+  });
+  const db = drizzle(expoDb);
   const refreshDB = useRefreshDbStore((state) => state.refreshDB);
 
   // ✅ Query all observations + object info

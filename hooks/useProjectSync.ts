@@ -1,20 +1,23 @@
 import { useEffect } from "react";
 import { drizzle } from "drizzle-orm/expo-sqlite";
-import { useSQLiteContext } from "expo-sqlite";
+import { openDatabaseSync, useSQLiteContext } from "expo-sqlite";
 import { eq } from "drizzle-orm";
 import { objectTypes, attributes, attributeValues } from "@/db/schema";
 import { ObjectItem, ValueType } from "@/components/new-project helper/form";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
+import { DATABASE_NAME } from "@/app/_layout";
 
 export function useProjectSync(
   projectId: number,
   objects: ObjectItem[],
   setObjects: (data: ObjectItem[]) => void
 ) {
-  const sqliteDb = useSQLiteContext();
-
+  const expoDb = openDatabaseSync(DATABASE_NAME, {
+    useNewConnection: true,
+  });
+ 
   // 🔎 Enable SQL logging
-  const db = drizzle(sqliteDb, { logger: true });
+  const db = drizzle(expoDb, { logger: true });
 
   const debug = (label: string, data?: any) => {
     // Safer consistent logging

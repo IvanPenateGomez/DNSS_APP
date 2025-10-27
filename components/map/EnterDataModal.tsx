@@ -1,3 +1,4 @@
+import { DATABASE_NAME } from "@/app/_layout";
 import { saveObservation } from "@/hooks/saveObservation";
 import { useProjectObjects } from "@/hooks/useProjectObjects";
 import { useProjectStore } from "@/zustand/projectId";
@@ -5,7 +6,7 @@ import { useRefreshDbStore } from "@/zustand/refreshDbStore";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import * as Location from "expo-location";
-import { useSQLiteContext } from "expo-sqlite";
+import { openDatabaseSync, useSQLiteContext } from "expo-sqlite";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -57,8 +58,10 @@ export default function EnterDataModal({
   const [selectedValues, setSelectedValues] = useState<Record<number, any>>({}); // attrId -> value(s)
   const projectId = useProjectStore((s) => s.projectId);
   const { data: objects, loading } = useProjectObjects(projectId);
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb);
+  const expoDb = openDatabaseSync(DATABASE_NAME, {
+    useNewConnection: true,
+  });
+  const db = drizzle(expoDb);
 
   // Reset when opening modal
   useEffect(() => {

@@ -1,9 +1,14 @@
 import { GLOBAL_APP_COLOR } from "@/constants/GlobalStyles";
 import DrawerContextProvider, { useDrawer } from "@/context/DrawerContext";
-import { Ionicons } from "@expo/vector-icons";
+import { observations } from "@/db/schema";
 import { useSavedObservationsGrouped } from "@/hooks/useSavedObservationsGrouped";
 import { useProjectStore } from "@/zustand/projectId";
+import { useRefreshDbStore } from "@/zustand/refreshDbStore";
+import { Ionicons } from "@expo/vector-icons";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/expo-sqlite";
 import Drawer from "expo-router/drawer";
+import { openDatabaseSync } from "expo-sqlite";
 import React, { useMemo, useState } from "react";
 import {
   Dimensions,
@@ -16,11 +21,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { drizzle } from "drizzle-orm/expo-sqlite";
-import { eq } from "drizzle-orm";
-import { useSQLiteContext } from "expo-sqlite";
-import { observations } from "@/db/schema";
-import { useRefreshDbStore } from "@/zustand/refreshDbStore";
+import { DATABASE_NAME } from "../_layout";
 
 const drawerWidth = 260;
 
@@ -32,9 +33,12 @@ export default function MenuStack() {
     const { drawerData } = useDrawer();
     const [search, setSearch] = useState("");
     const projectId = useProjectStore((s) => s.projectId);
-    const { data: groupedData, isLoading } = useSavedObservationsGrouped(projectId);
-    const sqliteDb = useSQLiteContext();
-    const db = drizzle(sqliteDb);
+    const { data: groupedData, isLoading } =
+      useSavedObservationsGrouped(projectId);
+    const expoDb = openDatabaseSync(DATABASE_NAME, {
+      useNewConnection: true,
+    });
+    const db = drizzle(expoDb);
     const refreshDB = useRefreshDbStore((s) => s.increment);
 
     // Flatten grouped data into headers + items
@@ -66,7 +70,7 @@ export default function MenuStack() {
     // 🟩 Toggle one observation
     const toggleObservationVisible = async (id: number, current: boolean) => {
       try {
-        console.log("settign...", current.valueOf)
+        console.log("settign...", current.valueOf);
         await db
           .update(observations)
           .set({ mapVisible: !current })
@@ -79,7 +83,10 @@ export default function MenuStack() {
     };
 
     // 🟩 Toggle all observations in a group
-    const toggleGroupVisible = async (objectTypeId: number, newValue: boolean) => {
+    const toggleGroupVisible = async (
+      objectTypeId: number,
+      newValue: boolean
+    ) => {
       try {
         await db
           .update(observations)
@@ -100,12 +107,7 @@ export default function MenuStack() {
         const color = item.color || GLOBAL_APP_COLOR;
 
         return (
-          <View
-            style={[
-              styles.sectionHeader,
-              { borderLeftColor: color },
-            ]}
-          >
+          <View style={[styles.sectionHeader, { borderLeftColor: color }]}>
             <TouchableOpacity
               onPress={() => toggleGroupVisible(item.objectTypeId, !allVisible)}
               style={styles.checkboxContainer}
@@ -117,55 +119,48 @@ export default function MenuStack() {
                 color={color}
                 style={{ marginRight: 6 }}
               />
-              <Text style={[styles.sectionTitle, { color }]}>{item.objectName}</Text>
+              <Text style={[styles.sectionTitle, { color }]}>
+                {item.objectName}
+              </Text>
             </TouchableOpacity>
           </View>
         );
       }
 
-// ───── ITEM ─────
-const color = item.parentColor || GLOBAL_APP_COLOR;
-const hasAnswers = item.attributes && item.attributes.length > 0;
-const isVisible = item.mapVisible;
+      // ───── ITEM ─────
+      const color = item.parentColor || GLOBAL_APP_COLOR;
+      const hasAnswers = item.attributes && item.attributes.length > 0;
+      const isVisible = item.mapVisible;
 
-// Build short summary string
-const valueSummary = hasAnswers
-  ? item.attributes
-      .map((a: any) => `${a.name}: ${a.value}`)
-      .join(", ")
-  : "No data yet";
+      // Build short summary string
+      const valueSummary = hasAnswers
+        ? item.attributes.map((a: any) => `${a.name}: ${a.value}`).join(", ")
+        : "No data yet";
 
-return (
-  <TouchableOpacity
-    activeOpacity={0.8}
-    style={[
-      styles.itemContainer,
-      { borderLeftColor: color, borderLeftWidth: 4 },
-    ]}
-    onPress={() => toggleObservationVisible(item.id, isVisible)}
-  >
-    <Ionicons
-      name={isVisible ? "checkbox" : "square-outline"}
-      size={20}
-      color={color}
-      style={{ marginRight: 10 }}
-    />
+      return (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={[
+            styles.itemContainer,
+            { borderLeftColor: color, borderLeftWidth: 4 },
+          ]}
+          onPress={() => toggleObservationVisible(item.id, isVisible)}
+        >
+          <Ionicons
+            name={isVisible ? "checkbox" : "square-outline"}
+            size={20}
+            color={color}
+            style={{ marginRight: 10 }}
+          />
 
-    <View style={{ flex: 1 }}>
-      <Text style={styles.itemText}>Observation #{item.id}</Text>
-      <Text
-        style={styles.subText}
-        numberOfLines={2}
-        ellipsizeMode="tail"
-      >
-        {valueSummary}
-      </Text>
-    </View>
-
-    
-  </TouchableOpacity>
-);
-
+          <View style={{ flex: 1 }}>
+            <Text style={styles.itemText}>Observation #{item.id}</Text>
+            <Text style={styles.subText} numberOfLines={2} ellipsizeMode="tail">
+              {valueSummary}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      );
     };
 
     // Empty state

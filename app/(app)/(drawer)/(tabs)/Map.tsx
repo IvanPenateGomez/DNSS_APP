@@ -1,3 +1,4 @@
+import { DATABASE_NAME } from "@/app/_layout";
 import EnterDataButton from "@/components/general/EnterDataButton";
 import EnterDataModal from "@/components/map/EnterDataModal";
 import { useDrawer } from "@/context/DrawerContext";
@@ -9,7 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import * as Location from "expo-location";
-import { useSQLiteContext } from "expo-sqlite";
+import { openDatabaseSync, useSQLiteContext } from "expo-sqlite";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -39,8 +40,10 @@ export default function Map() {
   const { data: observationsData } = useSavedObservations(projectId);
 
   const isLoading = !observationsData;
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb);
+   const expoDb = openDatabaseSync(DATABASE_NAME, {
+      useNewConnection: true,
+    });
+    const db = drizzle(expoDb);
 
   // -----------------------------
   // 📍 Initial map setup

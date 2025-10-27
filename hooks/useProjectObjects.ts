@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react";
 import { drizzle } from "drizzle-orm/expo-sqlite";
-import { useSQLiteContext } from "expo-sqlite";
+import { openDatabaseSync, useSQLiteContext } from "expo-sqlite";
 import { eq, asc } from "drizzle-orm";
 import { objectTypes, attributes, attributeValues } from "@/db/schema";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
 import { ObjectItem, ValueType } from "@/components/new-project helper/form";
+import { DATABASE_NAME } from "@/app/_layout";
 
 /**
  * Custom live-like query hook that loads all object types, attributes, and select values
  * for a specific projectId and refreshes whenever `refreshDB` changes.
  */
 export function useProjectObjects(projectId: number) {
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb);
+  const expoDb = openDatabaseSync(DATABASE_NAME, {
+    useNewConnection: true,
+  });
+  const db = drizzle(expoDb);
 
   const refreshDB = useRefreshDbStore((state) => state.refreshDB);
   const [data, setData] = useState<ObjectItem[]>([]);

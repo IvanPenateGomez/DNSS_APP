@@ -1,3 +1,4 @@
+import { DATABASE_NAME } from "@/app/_layout";
 import {
   attributeCoordinateValues,
   attributes,
@@ -11,13 +12,13 @@ import { useProjects } from "@/hooks/useProjects";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
 import { useInitializeStore } from "@/zustand/useInitializeStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { eq, inArray, and } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
-import { useSQLiteContext } from "expo-sqlite";
+import { openDatabaseSync } from "expo-sqlite";
 import React, { useState } from "react";
 import {
   Alert,
@@ -35,16 +36,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const WelcomeScreen = () => {
   const router = useRouter();
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb);
+  const expoDb = openDatabaseSync(DATABASE_NAME, {
+    useNewConnection: true,
+  });
+  const db = drizzle(expoDb);
   const insets = useSafeAreaInsets();
   const refreshDb = useRefreshDbStore((s) => s.increment);
 
-
-
   // ✅ 1. Get actual SQLite database path from context
-  const dbPath = sqliteDb.databasePath;
-
+  const dbPath = expoDb.databasePath;
 
   const { data: projectList } = useProjects();
   const [showPrompt, setShowPrompt] = useState(false);
@@ -55,16 +55,16 @@ const WelcomeScreen = () => {
     name: string;
   } | null>(null);
 
-   const handleExport = async (
+  const handleExport = async (
     projectId: number,
     name: string,
     type: "whole" | "locations"
   ) => {
     try {
       console.log(`📤 Exporting project (${type}) as CSV:`, projectId);
-  
+
       let csv = "";
-  
+
       // 🧩 Helper to convert any table data to CSV
       const toCSV = (data: any[], title: string) => {
         if (!data?.length) return `${title}\n(no data)\n\n`;
@@ -74,17 +74,20 @@ const WelcomeScreen = () => {
         );
         return `${title}\n${headers.join(",")}\n${rows.join("\n")}\n\n`;
       };
-  
+
       if (type === "whole") {
         // 1️⃣ Project itself
-        const proj = await db.select().from(projects).where(eq(projects.id, projectId));
-      
+        const proj = await db
+          .select()
+          .from(projects)
+          .where(eq(projects.id, projectId));
+
         // 2️⃣ Object types belonging to project
         const objs = await db
           .select()
           .from(objectTypes)
           .where(eq(objectTypes.project_id, projectId));
-      
+
         // 3️⃣ Attributes for only those object types
         const objectTypeIds = objs.map((o) => o.id);
         const attrs = objectTypeIds.length
@@ -93,13 +96,13 @@ const WelcomeScreen = () => {
               .from(attributes)
               .where(inArray(attributes.object_type_id, objectTypeIds))
           : [];
-      
+
         // 4️⃣ Sessions for this project
         const sessions = await db
           .select()
           .from(surveySessions)
           .where(eq(surveySessions.project_id, projectId));
-      
+
         // 5️⃣ Observations from only those sessions
         const sessionIds = sessions.map((s) => s.id);
         const obs = sessionIds.length
@@ -108,7 +111,7 @@ const WelcomeScreen = () => {
               .from(observations)
               .where(inArray(observations.session_id, sessionIds))
           : [];
-      
+
         // 6️⃣ Attribute values for only those attributes
         const attrIds = attrs.map((a) => a.id);
         const vals = attrIds.length
@@ -117,7 +120,7 @@ const WelcomeScreen = () => {
               .from(attributeValues)
               .where(inArray(attributeValues.attribute_id, attrIds))
           : [];
-      
+
         // 7️⃣ Coordinate values for only those observations + attributes
         const obsIds = obs.map((o) => o.id);
         const coordVals =
@@ -132,7 +135,7 @@ const WelcomeScreen = () => {
                   )
                 )
             : [];
-      
+
         // ✅ Combine into CSV
         csv =
           toCSV(proj, "PROJECTS") +
@@ -142,102 +145,110 @@ const WelcomeScreen = () => {
           toCSV(obs, "OBSERVATIONS") +
           toCSV(vals, "ATTRIBUTE_VALUES") +
           toCSV(coordVals, "ATTRIBUTE_COORDINATE_VALUES");
-      }
-       else {
+      } else {
         const obs = await db
-        .select({
-          observation_id: observations.id,
-          latitude: observations.latitude,
-          longitude: observations.longitude,
-          captured_at: observations.captured_at,
-          notes: observations.notes,
-          status: observations.status,
-          object_type_id: observations.object_type_id,
-          session_id: observations.session_id,
-        })
-        .from(observations)
-        .innerJoin(surveySessions, eq(surveySessions.id, observations.session_id))
-        .where(
-          and(
-            eq(surveySessions.project_id, projectId),
-            eq(observations.mapVisible, true) // ✅ only active visible points
+          .select({
+            observation_id: observations.id,
+            latitude: observations.latitude,
+            longitude: observations.longitude,
+            captured_at: observations.captured_at,
+            notes: observations.notes,
+            status: observations.status,
+            object_type_id: observations.object_type_id,
+            session_id: observations.session_id,
+          })
+          .from(observations)
+          .innerJoin(
+            surveySessions,
+            eq(surveySessions.id, observations.session_id)
           )
-        );
-      
-      if (!obs?.length) {
-        Alert.alert("No data", "No visible observations found for export.");
-        return;
-      }
-      
-      // 🗂 Load supporting data
-      const [objs, attrs, coordVals] = await Promise.all([
-        db.select().from(objectTypes).where(eq(objectTypes.project_id, projectId)),
-        db
-          .select()
-          .from(attributes)
           .where(
-            inArray(
-              attributes.object_type_id,
-              obs.map((o) => o.object_type_id)
+            and(
+              eq(surveySessions.project_id, projectId),
+              eq(observations.mapVisible, true) // ✅ only active visible points
             )
-          ),
-        db
-          .select()
-          .from(attributeCoordinateValues)
-          .where(
-            inArray(
-              attributeCoordinateValues.observation_id,
-              obs.map((o) => o.observation_id)
-            )
-          ),
-      ]);
-      
-      // Build lookup maps
-      const objectMap = Object.fromEntries(objs.map((o) => [o.id, o.name]));
-      const attrMap = Object.fromEntries(attrs.map((a) => [a.id, a.label]));
-      
-      // Group coordinate values by observation
-      const coordValueMap = coordVals.reduce<Record<number, string[]>>((acc, v) => {
-        if (!acc[v.observation_id]) acc[v.observation_id] = [];
-        const label = attrMap[v.attribute_id] ?? "";
-        acc[v.observation_id].push(`${label}: ${v.value_text}`);
-        return acc;
-      }, {});
-      
-      // 🧾 Flatten into clean export rows
-      const flattened = obs.map((o) => ({
-        observation_id: o.observation_id,
-        object_type: objectMap[o.object_type_id] ?? "",
-        latitude: o.latitude,
-        longitude: o.longitude,
-        attributes: coordValueMap[o.observation_id]?.join(" | ") ?? "", // all attributes combined
-        notes: o.notes ?? "",
-        status: o.status,
-        captured_at: o.captured_at,
-      }));
-      
-      // Convert to CSV (no title line)
-      const headers = Object.keys(flattened[0]);
-      const rows = flattened.map((r) =>
-        headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")
-      );
-      
-      csv = `${headers.join(",")}\n${rows.join("\n")}\n`;
+          );
+
+        if (!obs?.length) {
+          Alert.alert("No data", "No visible observations found for export.");
+          return;
         }
-        
+
+        // 🗂 Load supporting data
+        const [objs, attrs, coordVals] = await Promise.all([
+          db
+            .select()
+            .from(objectTypes)
+            .where(eq(objectTypes.project_id, projectId)),
+          db
+            .select()
+            .from(attributes)
+            .where(
+              inArray(
+                attributes.object_type_id,
+                obs.map((o) => o.object_type_id)
+              )
+            ),
+          db
+            .select()
+            .from(attributeCoordinateValues)
+            .where(
+              inArray(
+                attributeCoordinateValues.observation_id,
+                obs.map((o) => o.observation_id)
+              )
+            ),
+        ]);
+
+        // Build lookup maps
+        const objectMap = Object.fromEntries(objs.map((o) => [o.id, o.name]));
+        const attrMap = Object.fromEntries(attrs.map((a) => [a.id, a.label]));
+
+        // Group coordinate values by observation
+        const coordValueMap = coordVals.reduce<Record<number, string[]>>(
+          (acc, v) => {
+            if (!acc[v.observation_id]) acc[v.observation_id] = [];
+            const label = attrMap[v.attribute_id] ?? "";
+            acc[v.observation_id].push(`${label}: ${v.value_text}`);
+            return acc;
+          },
+          {}
+        );
+
+        // 🧾 Flatten into clean export rows
+        const flattened = obs.map((o) => ({
+          observation_id: o.observation_id,
+          object_type: objectMap[o.object_type_id] ?? "",
+          latitude: o.latitude,
+          longitude: o.longitude,
+          attributes: coordValueMap[o.observation_id]?.join(" | ") ?? "", // all attributes combined
+          notes: o.notes ?? "",
+          status: o.status,
+          captured_at: o.captured_at,
+        }));
+
+        // Convert to CSV (no title line)
+        const headers = Object.keys(flattened[0]);
+        const rows = flattened.map((r) =>
+          headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")
+        );
+
+        csv = `${headers.join(",")}\n${rows.join("\n")}\n`;
+      }
+
       // 💾 Write CSV file
       const filePath = `${FileSystem.cacheDirectory}${name
         .replace(/\s+/g, "_")
         .toLowerCase()}_${type}_export.csv`;
-  
+
       await FileSystem.writeAsStringAsync(filePath, csv, { encoding: "utf8" });
-  
+
       // 📤 Share the file
       if (!(await Sharing.isAvailableAsync())) {
         Alert.alert("Sharing not available on this device.");
         return;
       }
-  
+
       await Sharing.shareAsync(filePath, {
         mimeType: "text/csv",
         dialogTitle: `Export ${
@@ -245,7 +256,7 @@ const WelcomeScreen = () => {
         } Data`,
         UTI: "public.comma-separated-values-text",
       });
-  
+
       console.log("✅ CSV shared successfully:", filePath);
     } catch (err) {
       console.error("❌ Export failed:", err);
@@ -317,29 +328,29 @@ const WelcomeScreen = () => {
     }
   };
 
-   const handleImportProject = async () => {
+  const handleImportProject = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({});
-  
+
       if (result.canceled || !result.assets?.[0]?.uri) return;
-  
+
       const fileUri = result.assets[0].uri;
       console.log("📂 Importing project from:", fileUri);
-  
+
       // ✅ Read file
       const fileData = await FileSystem.readAsStringAsync(fileUri, {
         encoding: "utf8",
       });
-  
+
       // ✅ Parse CSV sections
       const sections = fileData.split(/\n\s*\n/);
       const parsed: Record<string, any[]> = {};
-  
+
       for (const section of sections) {
         const lines = section.trim().split("\n");
         const title = lines.shift()?.trim();
         if (!title || lines.length < 2) continue;
-  
+
         const headers = lines[0].split(",").map((h) => h.trim());
         const rows = lines.slice(1).map((line) => {
           const values = line.split(",");
@@ -349,9 +360,9 @@ const WelcomeScreen = () => {
         });
         parsed[title] = rows;
       }
-  
+
       console.log("📊 Parsed CSV sections:", Object.keys(parsed));
-  
+
       // ✅ Create new project
       const importedName =
         parsed.PROJECTS?.[0]?.name || `Imported_${Date.now()}`;
@@ -365,7 +376,7 @@ const WelcomeScreen = () => {
       const projectId = insertedProject[0]?.id;
       if (!projectId) throw new Error("Failed to insert project");
       console.log("🆕 Created imported project:", importedName);
-  
+
       // ✅ OBJECT TYPES
       const objMap = new Map<number, number>();
       if (parsed.OBJECT_TYPES) {
@@ -382,7 +393,7 @@ const WelcomeScreen = () => {
           objMap.set(Number(o.id), res[0].id);
         }
       }
-  
+
       // ✅ ATTRIBUTES
       const attrMap = new Map<number, number>();
       if (parsed.ATTRIBUTES) {
@@ -403,7 +414,7 @@ const WelcomeScreen = () => {
           attrMap.set(Number(a.id), res[0].id);
         }
       }
-  
+
       // ✅ ATTRIBUTE VALUES (select options)
       if (parsed.ATTRIBUTE_VALUES) {
         for (const v of parsed.ATTRIBUTE_VALUES) {
@@ -415,7 +426,7 @@ const WelcomeScreen = () => {
           });
         }
       }
-  
+
       // ✅ SURVEY SESSIONS
       const sessionMap = new Map<number, number>();
       if (parsed.SURVEY_SESSIONS) {
@@ -431,7 +442,7 @@ const WelcomeScreen = () => {
           sessionMap.set(Number(s.id), res[0].id);
         }
       }
-  
+
       // ✅ OBSERVATIONS
       const obsMap = new Map<number, number>();
       if (parsed.OBSERVATIONS) {
@@ -439,7 +450,7 @@ const WelcomeScreen = () => {
           const sessionId = sessionMap.get(Number(o.session_id));
           const objectId = objMap.get(Number(o.object_type_id));
           if (!sessionId || !objectId) continue;
-  
+
           const res = await db
             .insert(observations)
             .values({
@@ -456,7 +467,7 @@ const WelcomeScreen = () => {
           obsMap.set(Number(o.id), res[0].id);
         }
       }
-  
+
       // ✅ ATTRIBUTE COORDINATE VALUES
       if (parsed.ATTRIBUTE_COORDINATE_VALUES) {
         for (const v of parsed.ATTRIBUTE_COORDINATE_VALUES) {
@@ -470,7 +481,7 @@ const WelcomeScreen = () => {
           });
         }
       }
-  
+
       refreshDb();
       Alert.alert("✅ Import Successful", `Project “${importedName}” added.`);
       console.log("🎉 Project imported successfully!");
@@ -587,24 +598,26 @@ const WelcomeScreen = () => {
                           onPress: async () => {
                             try {
                               console.log("🧹 Starting full reset...");
-        
+
                               if (dbPath) {
                                 console.log("🗑 Deleting DB at:", dbPath);
                                 await FileSystem.deleteAsync(dbPath, {
                                   idempotent: true,
                                 });
                               } else {
-                                console.warn("⚠️ No databasePath found in context");
+                                console.warn(
+                                  "⚠️ No databasePath found in context"
+                                );
                               }
-        
+
                               // ✅ 2. Clear AsyncStorage
                               await AsyncStorage.clear();
                               console.log("🧽 Cleared AsyncStorage");
-        
+
                               // ✅ 3. Refresh Zustand store & reload app
                               refreshDb();
                               useInitializeStore.getState().increment();
-        
+
                               Alert.alert(
                                 "✅ Reset Complete",
                                 "All local data cleared. Restart the app to initialize."
@@ -628,7 +641,6 @@ const WelcomeScreen = () => {
       />
 
       {/* 🔄 Reset App Data Button */}
-      
 
       {/* ✅ Android Prompt Modal */}
       <Modal transparent visible={showPrompt} animationType="fade">

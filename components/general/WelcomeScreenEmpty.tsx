@@ -1,7 +1,8 @@
+import { DATABASE_NAME } from "@/app/_layout";
 import { projects } from "@/db/schema";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import { useRouter } from "expo-router";
-import { useSQLiteContext } from "expo-sqlite";
+import { openDatabaseSync } from "expo-sqlite";
 import React, { useState } from "react";
 import {
   Alert,
@@ -17,7 +18,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const WelcomeScreenEmpty = () => {
   const router = useRouter();
-  const db = drizzle(useSQLiteContext());
+  const expoDb = openDatabaseSync(DATABASE_NAME, {
+    useNewConnection: true,
+  });
+  const db = drizzle(expoDb);
   const insets = useSafeAreaInsets();
 
   const [showPrompt, setShowPrompt] = useState(false);
@@ -65,7 +69,10 @@ const WelcomeScreenEmpty = () => {
   return (
     <Animated.View
       entering={FadeIn.duration(400).delay(300)}
-      style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: 120 }]}
+      style={[
+        styles.container,
+        { paddingTop: insets.top + 20, paddingBottom: 120 },
+      ]}
     >
       <Text style={styles.title}>Welcome to Survey App</Text>
       <Text style={styles.subtitle}>

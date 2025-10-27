@@ -1,13 +1,14 @@
 // hooks/useFormState.ts
 import { useState } from "react";
 import { Alert, Platform } from "react-native";
-import { useSQLiteContext } from "expo-sqlite";
+import { openDatabaseSync, useSQLiteContext } from "expo-sqlite";
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import { eq, desc } from "drizzle-orm";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useRefreshDbStore } from "@/zustand/refreshDbStore";
 import { objectTypes, attributes, attributeValues } from "@/db/schema";
 import { isValidColor } from "./colors";
+import { DATABASE_NAME } from "@/app/_layout";
 
 export type ValueType =
   | "text"
@@ -44,8 +45,10 @@ export type AddingType =
   | "editObject";
 
 export const useFormState = (projectId: number) => {
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb);
+  const expoDb = openDatabaseSync(DATABASE_NAME, {
+    useNewConnection: true,
+  });
+  const db = drizzle(expoDb);
   const refreshDB = useRefreshDbStore((s) => s.refreshDB);
 
   // UI state
